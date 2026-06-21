@@ -1,22 +1,16 @@
 """
-app.py -- "Zapp-tain America": a small Shazam clone.
-
-Two modes (select in the sidebar):
-  1. Single-clip mode -- upload one query clip, see the spectrogram, the
-     constellation of peaks, and the offset histogram that decides the
-     match, plus the predicted song.
-  2. Batch mode -- upload many query clips at once, get back a
-     results.csv with exactly two columns: filename, prediction.
+Zapp-tain America
+Modern Audio Fingerprinting Dashboard
 """
 
 import os
-import io
 import pickle
 import tempfile
 
 import numpy as np
 import pandas as pd
 import streamlit as st
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -24,9 +18,10 @@ import matplotlib.pyplot as plt
 from audio_io import load_audio, spectrogram_db
 from fingerprint import FingerprintDB, find_constellation_peaks
 
-# ----------------------------------------------------------------------
-# Config -- MUST match the parameters used in build_database.py
-# ----------------------------------------------------------------------
+# ============================================================
+# CONFIG
+# ============================================================
+
 WIN_LENGTH = 4096
 HOP_LENGTH = 2048
 SR = 22050
@@ -34,200 +29,559 @@ SR = 22050
 DB_PATH = "data/fingerprint_db.pkl"
 SONGS_DIR = "songs"
 
-st.set_page_config(page_title="Zapp-tain America", page_icon="🎵", layout="wide")
+st.set_page_config(
+    page_title="Zapp-tain America",
+    page_icon="🎵",
+    layout="wide",
+)
 
+# ============================================================
+# CUSTOM CSS
+# ============================================================
 
-# ----------------------------------------------------------------------
-# Database loading (cached so it only happens once per server process)
-# ----------------------------------------------------------------------
+st.markdown("""
+<style>
+
+.stApp {
+    background: #0f1117;
+    color: white;
+}
+
+section[data-testid="stSidebar"] {
+    background: #161a22;
+}
+
+h1,h2,h3,h4 {
+    color: white !important;
+}
+
+.hero {
+    text-align:center;
+    padding:2rem 0 1rem 0;
+}
+
+.hero-title {
+    font-size:3.2rem;
+    font-weight:800;
+}
+
+.hero-subtitle {
+    color:#B6BECF;
+    font-size:1.1rem;
+}
+
+.glass-card {
+    background: rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:18px;
+    padding:1rem;
+    backdrop-filter: blur(12px);
+    margin-bottom:1rem;
+}
+
+.match-card {
+    background: linear-gradient(
+        135deg,
+        rgba(91,141,239,0.15),
+        rgba(138,99,255,0.15)
+    );
+    border:1px solid rgba(255,255,255,0.1);
+    border-radius:20px;
+    padding:1.5rem;
+    text-align:center;
+}
+
+.metric-big {
+    font-size:2rem;
+    font-weight:700;
+}
+
+[data-testid="metric-container"] {
+    background: rgba(255,255,255,0.05);
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,0.08);
+    padding:10px;
+}
+
+[data-testid="stFileUploader"] {
+    border:2px dashed #5B8DEF;
+    border-radius:16px;
+    padding:10px;
+    background:rgba(91,141,239,0.05);
+}
+
+.stButton button,
+.stDownloadButton button {
+    background: linear-gradient(135deg,#5B8DEF,#8A63FF);
+    color:white;
+    border:none;
+    border-radius:12px;
+    font-weight:600;
+}
+
+footer {
+    visibility:hidden;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# DATABASE
+# ============================================================
+
 @st.cache_resource(show_spinner=False)
 def load_db():
     if os.path.exists(DB_PATH):
         with open(DB_PATH, "rb") as f:
             db = pickle.load(f)
         return db, "precomputed"
+
     elif os.path.isdir(SONGS_DIR) and any(
-        f.lower().endswith((".mp3", ".wav", ".m4a")) for f in os.listdir(SONGS_DIR)
+        f.lower().endswith((".mp3", ".wav", ".m4a"))
+        for f in os.listdir(SONGS_DIR)
     ):
-        db = FingerprintDB(win_length=WIN_LENGTH, hop_length=HOP_LENGTH, sr=SR)
+        db = FingerprintDB(
+            win_length=WIN_LENGTH,
+            hop_length=HOP_LENGTH,
+            sr=SR,
+        )
+
         db.build_from_folder(SONGS_DIR)
         return db, "built_live"
-    else:
-        return None, "missing"
+
+    return None, "missing"
 
 
 def save_upload_to_tmp(uploaded_file):
     suffix = os.path.splitext(uploaded_file.name)[1] or ".mp3"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+
+    with tempfile.NamedTemporaryFile(
+        suffix=suffix,
+        delete=False
+    ) as tmp:
         tmp.write(uploaded_file.getbuffer())
         return tmp.name
 
+# ============================================================
+# PLOTS
+# ============================================================
 
-# ----------------------------------------------------------------------
-# Plotting helpers
-# ----------------------------------------------------------------------
-def plot_spectrogram_constellation(y, sr, win_length, hop_length):
-    freqs, times, S_db = spectrogram_db(y, sr, win_length, hop_length)
-    peaks = find_constellation_peaks(S_db, freqs, times)
+def plot_spectrogram_constellation(
+    y,
+    sr,
+    win_length,
+    hop_length
+):
+    freqs, times, S_db = spectrogram_db(
+        y,
+        sr,
+        win_length,
+        hop_length
+    )
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.pcolormesh(times, freqs, S_db, shading="auto", cmap="magma", vmin=-80, vmax=0)
+    peaks = find_constellation_peaks(
+        S_db,
+        freqs,
+        times
+    )
+
+    fig, ax = plt.subplots(figsize=(9,4))
+
+    ax.pcolormesh(
+        times,
+        freqs,
+        S_db,
+        shading="auto",
+        cmap="magma",
+        vmin=-80,
+        vmax=0
+    )
+
     if peaks:
         pf = [p["freq_hz"] for p in peaks]
         pt = [p["time_s"] for p in peaks]
-        ax.scatter(pt, pf, s=18, facecolors="none", edgecolors="cyan", linewidths=1.0)
-    ax.set_ylim(0, min(5000, sr / 2))
-    ax.set_title(f"Spectrogram + constellation ({len(peaks)} peaks)")
-    ax.set_xlabel("time (s)")
-    ax.set_ylabel("freq (Hz)")
-    fig.tight_layout()
-    return fig, peaks
 
+        ax.scatter(
+            pt,
+            pf,
+            s=18,
+            facecolors="none",
+            edgecolors="cyan",
+            linewidths=1
+        )
 
-def plot_offset_histogram(histogram, best_name):
-    fig, axes = plt.subplots(1, 2, figsize=(9, 3.6))
-    if not histogram:
-        for ax in axes:
-            ax.text(0.5, 0.5, "no matching hashes", ha="center", va="center")
-        return fig
-
-    offs = sorted(histogram.keys())
-    counts = [histogram[o] for o in offs]
-    best_off = max(histogram, key=histogram.get)
-
-    axes[0].bar(offs, counts, width=3.0, color="steelblue")
-    axes[0].set_yscale("log")
-    axes[0].axvline(best_off, color="red", alpha=0.25, lw=8, zorder=0)
-    axes[0].set_title(f"Offset histogram (log scale)\nbest match: {best_name}")
-    axes[0].set_xlabel("offset (frames)")
-    axes[0].set_ylabel("votes (log)")
-
-    window = 40
-    zoom = [o for o in offs if abs(o - best_off) <= window]
-    axes[1].bar(zoom, [histogram[o] for o in zoom], width=1.0, color="crimson")
-    axes[1].set_title(f"Zoomed near offset {best_off}\n({histogram[best_off]} votes)")
-    axes[1].set_xlabel("offset (frames)")
-    axes[1].set_ylabel("votes")
+    ax.set_ylim(0, min(5000, sr/2))
+    ax.set_title(
+        f"Spectrogram + Constellation ({len(peaks)} peaks)"
+    )
 
     fig.tight_layout()
     return fig
 
 
-# ----------------------------------------------------------------------
-# Sidebar
-# ----------------------------------------------------------------------
-st.sidebar.title("🎵 Zapp-tain America")
-mode = st.sidebar.radio("Mode", ["Single clip", "Batch mode"])
+def plot_offset_histogram(histogram, best_name):
+    fig, ax = plt.subplots(figsize=(9,4))
+
+    if not histogram:
+        ax.text(
+            0.5,
+            0.5,
+            "No matching hashes",
+            ha="center",
+            va="center"
+        )
+        return fig
+
+    offs = sorted(histogram.keys())
+    counts = [histogram[o] for o in offs]
+
+    ax.bar(offs, counts)
+    ax.set_yscale("log")
+    ax.set_title(f"Offset Histogram — {best_name}")
+
+    fig.tight_layout()
+    return fig
+
+# ============================================================
+# LOAD DATABASE
+# ============================================================
 
 db, db_status = load_db()
 
 if db_status == "missing":
-    st.sidebar.error(
-        "No song database found. Add mp3s to `songs/` and run "
-        "`python build_database.py`, or place a precomputed "
-        "`data/fingerprint_db.pkl` in the repo."
+    st.error(
+        "No fingerprint database found.\n\n"
+        "Run build_database.py first."
     )
     st.stop()
-elif db_status == "built_live":
-    st.sidebar.warning("Indexed songs live at startup (no precomputed db.pkl found).")
 
-st.sidebar.markdown(f"**Songs indexed:** {len(db.songs)}")
-with st.sidebar.expander("Show indexed songs"):
-    for name in db.songs.values():
-        st.write("- " + name)
+# ============================================================
+# SIDEBAR
+# ============================================================
 
+st.sidebar.markdown("""
+# Zapp-tain
+### Audio Recognition Engine
+""")
 
-# ----------------------------------------------------------------------
-# Single-clip mode
-# ----------------------------------------------------------------------
+mode = st.sidebar.radio(
+    "Choose Mode",
+    [
+        "Single clip",
+        "Batch mode"
+    ]
+)
+
+st.sidebar.markdown("---")
+
+st.sidebar.info(
+    "Upload a clip and identify songs using "
+    "constellation maps and audio fingerprinting."
+)
+
+st.sidebar.markdown(
+    f"### Songs Indexed\n**{len(db.songs)}**"
+)
+
+with st.sidebar.expander("View Song Database"):
+    for song in db.songs.values():
+        st.write("•", song)
+
+# ============================================================
+# HERO
+# ============================================================
+
+st.markdown("""
+<div class="hero">
+<div class="hero-title">Zapp-tain America</div>
+<div class="hero-subtitle">
+Shazam-style music recognition powered by audio fingerprinting
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# DASHBOARD CARDS
+# ============================================================
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    st.markdown(f"""
+    <div class="glass-card">
+    <h4>Songs Indexed</h4>
+    <div class="metric-big">{len(db.songs)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c2:
+    st.markdown("""
+    <div class="glass-card">
+    <h4>Engine</h4>
+    <div class="metric-big">Fingerprint DB</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    st.markdown("""
+    <div class="glass-card">
+    <h4>Recognition</h4>
+    <div class="metric-big">Real Time</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================
+# SINGLE CLIP MODE
+# ============================================================
+
 if mode == "Single clip":
-    st.title("Single-clip identification")
-    st.write("Upload a short query clip and I'll identify which song it's from.")
 
-    uploaded = st.file_uploader("Query clip", type=["mp3", "wav", "m4a", "flac"])
+    uploaded = st.file_uploader(
+        "Upload Query Clip",
+        type=["mp3", "wav", "m4a", "flac"]
+    )
 
-    if uploaded is not None:
+    if uploaded:
+
         tmp_path = save_upload_to_tmp(uploaded)
+
         try:
+
             with st.spinner("Decoding audio..."):
-                y, sr = load_audio(tmp_path, sr=SR)
+                y, sr = load_audio(
+                    tmp_path,
+                    sr=SR
+                )
+
             st.audio(uploaded)
 
-            with st.spinner("Fingerprinting and matching..."):
-                result = db.match(y, mode="paired")
+            with st.spinner("Matching fingerprints..."):
+                result = db.match(
+                    y,
+                    mode="paired"
+                )
 
             best = result["best"]
+
             if best is None:
-                st.error("No match found -- this clip doesn't match any indexed song.")
+
+                st.error(
+                    "No matching song found."
+                )
+
             else:
+
                 top_votes = result["ranked"][0][2]
-                runner_up = result["ranked"][1][2] if len(result["ranked"]) > 1 else 0
-                st.success(f"**Predicted song: {best}**")
-                c1, c2 = st.columns(2)
-                c1.metric("Votes (best offset)", top_votes)
-                c2.metric("Runner-up votes", runner_up)
 
-                with st.expander("Top candidates"):
-                    st.table(pd.DataFrame(
-                        [(n, v) for _, n, v in result["ranked"]],
-                        columns=["song", "votes"],
-                    ))
+                runner_up = (
+                    result["ranked"][1][2]
+                    if len(result["ranked"]) > 1
+                    else 0
+                )
 
-            st.subheader("Intermediate steps")
-            col1, col2 = st.columns(2)
-            with col1:
-                fig1, peaks = plot_spectrogram_constellation(y, sr, WIN_LENGTH, HOP_LENGTH)
+                confidence = (
+                    top_votes /
+                    max(top_votes + runner_up, 1)
+                ) * 100
+
+                st.markdown(f"""
+                <div class="match-card">
+                <h3>Match Found</h3>
+                <h1>{best}</h1>
+                </div>
+                """, unsafe_allow_html=True)
+
+                st.progress(
+                    min(confidence/100, 1.0)
+                )
+
+                st.caption(
+                    f"Confidence: {confidence:.1f}%"
+                )
+
+                m1, m2 = st.columns(2)
+
+                with m1:
+                    st.metric(
+                        "Best Votes",
+                        top_votes
+                    )
+
+                with m2:
+                    st.metric(
+                        "Runner-up Votes",
+                        runner_up
+                    )
+
+                with st.expander(
+                    "Top Candidate Matches"
+                ):
+                    st.dataframe(
+                        pd.DataFrame(
+                            [
+                                (n, v)
+                                for _, n, v
+                                in result["ranked"]
+                            ],
+                            columns=[
+                                "Song",
+                                "Votes"
+                            ]
+                        ),
+                        use_container_width=True
+                    )
+
+            tab1, tab2 = st.tabs(
+                [
+                    "Spectrogram",
+                    "Match Analysis"
+                ]
+            )
+
+            with tab1:
+                fig1 = plot_spectrogram_constellation(
+                    y,
+                    sr,
+                    WIN_LENGTH,
+                    HOP_LENGTH
+                )
+
                 st.pyplot(fig1)
                 plt.close(fig1)
-            with col2:
-                fig2 = plot_offset_histogram(result["histogram"], best or "none")
+
+            with tab2:
+                fig2 = plot_offset_histogram(
+                    result["histogram"],
+                    best or "None"
+                )
+
                 st.pyplot(fig2)
                 plt.close(fig2)
 
         finally:
             os.remove(tmp_path)
 
+# ============================================================
+# BATCH MODE
+# ============================================================
 
-# ----------------------------------------------------------------------
-# Batch mode
-# ----------------------------------------------------------------------
 else:
-    st.title("Batch identification")
-    st.write(
-        "Upload multiple query clips. I'll identify each one and produce a "
-        "`results.csv` with columns `filename, prediction` (prediction = "
-        "matched song's filename without extension)."
-    )
+
+    st.markdown("""
+    <div class="glass-card">
+    <h3>Batch Identification</h3>
+    Upload multiple clips and receive a downloadable results.csv.
+    </div>
+    """, unsafe_allow_html=True)
 
     uploads = st.file_uploader(
-        "Query clips", type=["mp3", "wav", "m4a", "flac"], accept_multiple_files=True
+        "Upload Query Clips",
+        type=["mp3", "wav", "m4a", "flac"],
+        accept_multiple_files=True
     )
 
-    if uploads and st.button(f"Identify all {len(uploads)} clips"):
+    if uploads and st.button(
+        f"Identify {len(uploads)} Files"
+    ):
+
         rows = []
-        progress = st.progress(0.0, text="Starting...")
+
+        progress = st.progress(
+            0,
+            text="Starting..."
+        )
+
         for i, uf in enumerate(uploads):
+
             tmp_path = save_upload_to_tmp(uf)
+
             try:
-                y, sr = load_audio(tmp_path, sr=SR)
-                result = db.match(y, mode="paired")
-                pred = result["best"] if result["best"] is not None else ""
-                rows.append({"filename": uf.name, "prediction": pred})
-            except Exception as e:
-                rows.append({"filename": uf.name, "prediction": ""})
-                st.warning(f"Failed on {uf.name}: {e}")
+
+                y, sr = load_audio(
+                    tmp_path,
+                    sr=SR
+                )
+
+                result = db.match(
+                    y,
+                    mode="paired"
+                )
+
+                pred = (
+                    result["best"]
+                    if result["best"]
+                    else ""
+                )
+
+                rows.append(
+                    {
+                        "filename": uf.name,
+                        "prediction": pred
+                    }
+                )
+
+            except Exception:
+
+                rows.append(
+                    {
+                        "filename": uf.name,
+                        "prediction": ""
+                    }
+                )
+
             finally:
+
                 os.remove(tmp_path)
-            progress.progress((i + 1) / len(uploads), text=f"{uf.name} -> done")
 
-        df = pd.DataFrame(rows, columns=["filename", "prediction"])
-        st.subheader("Results")
-        st.dataframe(df, use_container_width=True)
+            progress.progress(
+                (i + 1) / len(uploads),
+                text=f"Processed {uf.name}"
+            )
 
-        csv_bytes = df.to_csv(index=False).encode("utf-8")
+        df = pd.DataFrame(
+            rows,
+            columns=[
+                "filename",
+                "prediction"
+            ]
+        )
+
+        st.markdown("""
+        <div class="glass-card">
+        <h3>Results</h3>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.dataframe(
+            df,
+            use_container_width=True,
+            height=450
+        )
+
+        csv_bytes = (
+            df.to_csv(index=False)
+            .encode("utf-8")
+        )
+
         st.download_button(
-            "Download results.csv",
+            "⬇ Download results.csv",
             data=csv_bytes,
             file_name="results.csv",
-            mime="text/csv",
+            mime="text/csv"
         )
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+st.markdown("---")
+
+st.markdown(
+    """
+    <center>
+    Built with Streamlit • Audio Fingerprinting • IIT Kanpur
+    </center>
+    """,
+    unsafe_allow_html=True
+)
