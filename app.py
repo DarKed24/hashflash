@@ -260,33 +260,25 @@ if db_status == "missing":
 # SIDEBAR
 # ============================================================
 
-st.sidebar.markdown("""
-# Zapp-tain
-### Audio Recognition Engine
-""")
-
-mode = st.sidebar.radio(
-    "Choose Mode",
-    [
-        "Single clip",
-        "Batch mode"
-    ]
+mode = st.segmented_control(
+    "Mode",
+    ["Single Clip", "Batch Mode"],
+    default="Single Clip"
 )
 
-st.sidebar.markdown("---")
+nav1, nav2, nav3 = st.columns([1, 2, 1])
 
-st.sidebar.info(
-    "Upload a clip and identify songs using "
-    "constellation maps and audio fingerprinting."
-)
+with nav1:
+    st.markdown("### 🎵 Zapp-tain")
 
-st.sidebar.markdown(
-    f"### Songs Indexed\n**{len(db.songs)}**"
-)
+with nav2:
+    st.markdown(
+        "<center><h4 style='color:#B6BECF;'>Audio Recognition Engine</h4></center>",
+        unsafe_allow_html=True
+    )
 
-with st.sidebar.expander("View Song Database"):
-    for song in db.songs.values():
-        st.write("•", song)
+with nav3:
+    st.metric("Songs Indexed", len(db.songs))
 
 # ============================================================
 # HERO
@@ -335,7 +327,7 @@ with c3:
 # SINGLE CLIP MODE
 # ============================================================
 
-if mode == "Single clip":
+if mode == "Single Clip":
 
     uploaded = st.file_uploader(
         "Upload Query Clip",
