@@ -1,29 +1,30 @@
 """
-app.py -- "Zapp-tain America": a small Shazam clone.
-
-Two modes (toggle in header):
-  1. Single-clip mode
-  2. Batch mode
+app.py — Zapp-tain America  (audio fingerprinting demo)
 """
 
 import os
 import pickle
 import tempfile
 
+import numpy as np
 import pandas as pd
 import streamlit as st
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from matplotlib.patches import FancyArrowPatch
+import matplotlib.ticker as ticker
 
 from audio_io import load_audio, spectrogram_db
 from fingerprint import FingerprintDB, find_constellation_peaks
 
+# ── Constants ─────────────────────────────────────────────────────────────────
 WIN_LENGTH = 4096
 HOP_LENGTH = 2048
-SR        = 22050
-DB_PATH   = "data/fingerprint_db.pkl"
-SONGS_DIR = "songs"
+SR         = 22050
+DB_PATH    = "data/fingerprint_db.pkl"
+SONGS_DIR  = "songs"
 
 st.set_page_config(
     page_title="Zapp-tain America",
@@ -32,291 +33,374 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── Force dark on every element Streamlit owns ──────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# CSS — force dark palette on every Streamlit surface, light-mode-proof
+# ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
 
-/* Nuke every Streamlit surface to the dark palette */
-html, body,
+/* ── Hard-lock every Streamlit container to dark ── */
+html,
+body,
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"],
-.main, .block-container,
-section.main > div,
-div[class*="appview"],
-div[class*="main"] {
-    background-color: #0d0d0d !important;
-    color: #e8e8e8 !important;
+[data-testid="stVerticalBlock"],
+.main,
+.block-container {
+    background-color: #0c0c0f !important;
+    color: #d4d4d8 !important;
 }
 
-/* Kill sidebar */
+header[data-testid="stHeader"] {
+    background-color: #0c0c0f !important;
+    border-bottom: 1px solid #1e1e28 !important;
+}
+
 [data-testid="collapsedControl"],
 section[data-testid="stSidebar"] { display: none !important; }
 #MainMenu, footer { visibility: hidden; }
 
-/* The Streamlit top chrome bar */
-header[data-testid="stHeader"] {
-    background: #0d0d0d !important;
-    border-bottom: 1px solid #222 !important;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
-* { box-sizing: border-box; }
-
+/* ── Design tokens ── */
 :root {
-    --bg:      #0d0d0d;
-    --bg1:     #141414;
-    --bg2:     #1a1a1a;
-    --border:  #2a2a2a;
-    --accent:  #e8ff47;   /* acid yellow-green — the ONE bold thing */
-    --text:    #e8e8e8;
-    --dim:     #666;
-    --danger:  #ff4545;
-    --ok:      #4cff91;
-    --mono:    'IBM Plex Mono', monospace;
-    --sans:    'IBM Plex Sans', sans-serif;
+    --bg:       #0c0c0f;
+    --s1:       #13131a;
+    --s2:       #18181f;
+    --border:   #1e1e28;
+    --border2:  #2a2a38;
+    --amber:    #ff8c42;
+    --amber-lo: rgba(255,140,66,0.12);
+    --text:     #d4d4d8;
+    --dim:      #52525b;
+    --dim2:     #71717a;
+    --ok:       #4ade80;
+    --err:      #f87171;
+    --mono:     'Space Mono', monospace;
+    --display:  'Syne', sans-serif;
 }
 
-body { font-family: var(--sans); }
+/* ── Layout ── */
+.main .block-container {
+    padding-top: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    max-width: 100% !important;
+}
 
-/* ── Fixed navbar ── */
-.zn {
+/* ── Fixed top bar ── */
+.topbar {
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: 52px;
-    background: #0d0d0d;
-    border-bottom: 1px solid #222;
+    height: 56px;
+    background: #0c0c0f;
+    border-bottom: 1px solid #1e1e28;
     display: flex;
     align-items: center;
-    padding: 0 28px;
-    gap: 20px;
-    z-index: 10000;
+    padding: 0 36px;
+    gap: 0;
+    z-index: 99999;
 }
-.zn-brand {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    color: var(--accent);
-    text-transform: uppercase;
+.topbar-wordmark {
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
 }
-.zn-sep { color: #333; margin: 0 4px; }
-.zn-mode {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--dim);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+.topbar-wordmark span { color: var(--amber); }
+.topbar-rule {
+    flex: 1;
+    height: 1px;
+    background: #1e1e28;
+    margin: 0 24px;
 }
-.zn-right {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--dim);
-}
-.zn-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 4px;
-}
-
-/* Offset content below fixed nav */
-.main .block-container {
-    padding-top: 72px !important;
-    padding-left: 28px !important;
-    padding-right: 28px !important;
-    max-width: 1060px !important;
-}
-
-/* ── Section label ── */
-.sec-label {
+.topbar-db {
     font-family: var(--mono);
     font-size: 10px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--dim);
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #222;
+    letter-spacing: 0.06em;
+    color: var(--dim2);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.db-led {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
-/* ── Mode switcher tabs ── */
-.tabs-row {
+/* Push content below topbar */
+.page-shell {
+    padding: 80px 44px 60px;
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
+/* ── Mode tabs ── */
+.mode-tabs {
     display: flex;
     gap: 0;
-    border: 1px solid #222;
-    border-radius: 4px;
-    overflow: hidden;
-    width: fit-content;
-    margin-bottom: 32px;
+    border-bottom: 1px solid #1e1e28;
+    margin-bottom: 40px;
 }
-.tab-btn {
+.mtab {
     font-family: var(--mono);
     font-size: 11px;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    padding: 8px 22px;
+    padding: 10px 24px;
     border: none;
+    background: transparent;
     cursor: pointer;
-    transition: background 0.1s, color 0.1s;
+    color: var(--dim2);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s;
 }
-.tab-active   { background: var(--accent); color: #0d0d0d; font-weight: 600; }
-.tab-inactive { background: #141414; color: var(--dim); }
-.tab-inactive:hover { color: var(--text); }
+.mtab:hover { color: var(--text); }
+.mtab-on {
+    color: var(--amber) !important;
+    border-bottom-color: var(--amber) !important;
+}
 
-/* ── Drop zone ── */
+/* ── Section heading ── */
+.sec-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 20px;
+}
+.sec-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--amber);
+    letter-spacing: 0.12em;
+    flex-shrink: 0;
+}
+.sec-title {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text);
+}
+.sec-line {
+    flex: 1;
+    height: 1px;
+    background: #1e1e28;
+}
+
+/* ── Upload zone ── */
 [data-testid="stFileUploaderDropzone"] {
-    background: #141414 !important;
-    border: 1px dashed #2a2a2a !important;
-    border-radius: 4px !important;
+    background: #13131a !important;
+    border: 1px dashed #2a2a38 !important;
+    border-radius: 6px !important;
+    transition: border-color 0.15s !important;
 }
 [data-testid="stFileUploaderDropzone"]:hover {
-    border-color: var(--accent) !important;
+    border-color: var(--amber) !important;
 }
-[data-testid="stFileUploaderDropzoneInstructions"] span,
-[data-testid="stFileUploaderDropzoneInstructions"] small {
-    color: #555 !important;
+[data-testid="stFileUploaderDropzoneInstructions"] span {
     font-family: var(--mono) !important;
     font-size: 12px !important;
+    color: var(--dim2) !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] small {
+    font-family: var(--mono) !important;
+    color: var(--dim) !important;
 }
 
 /* ── Buttons ── */
 .stButton > button {
-    background: transparent !important;
-    color: var(--accent) !important;
-    border: 1px solid var(--accent) !important;
-    border-radius: 3px !important;
     font-family: var(--mono) !important;
     font-size: 11px !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.08em !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
     text-transform: uppercase !important;
-    padding: 8px 20px !important;
-    transition: background 0.12s !important;
+    background: transparent !important;
+    color: var(--amber) !important;
+    border: 1px solid var(--amber) !important;
+    border-radius: 4px !important;
+    padding: 10px 24px !important;
+    transition: background 0.15s !important;
 }
 .stButton > button:hover {
-    background: var(--accent) !important;
-    color: #0d0d0d !important;
+    background: var(--amber-lo) !important;
 }
 
-/* ── Result strip ── */
-.res-strip {
-    border-left: 3px solid var(--accent);
-    padding: 16px 20px;
-    background: #141414;
-    margin-bottom: 24px;
+/* ── Match result ── */
+.match-block {
+    background: #13131a;
+    border: 1px solid #1e1e28;
+    border-left: 3px solid var(--amber);
+    padding: 22px 26px;
+    margin-bottom: 28px;
     display: flex;
-    align-items: baseline;
-    gap: 16px;
+    align-items: flex-start;
+    gap: 20px;
 }
-.res-strip-label {
+.match-tag {
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--dim);
-    white-space: nowrap;
+    color: var(--amber);
+    margin-bottom: 5px;
 }
-.res-strip-name {
-    font-family: var(--mono);
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text);
-    word-break: break-all;
+.match-name {
+    font-family: var(--display);
+    font-size: 24px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
 }
-
-.no-match {
-    border-left: 3px solid var(--danger);
-    padding: 14px 20px;
-    background: #141414;
-    margin-bottom: 24px;
+.no-match-block {
+    background: #13131a;
+    border-left: 3px solid var(--err);
+    padding: 16px 20px;
+    margin-bottom: 28px;
     font-family: var(--mono);
     font-size: 12px;
-    color: var(--danger);
+    color: var(--err);
 }
 
-/* ── Stat grid ── */
-.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #222; margin-bottom: 24px; }
-.stat-cell { background: #141414; padding: 16px 20px; }
-.stat-key  { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--dim); margin-bottom: 6px; }
-.stat-val  { font-family: var(--mono); font-size: 28px; font-weight: 600; color: var(--accent); }
-
-/* ── Audio player ── */
-.stAudio { margin-bottom: 20px; }
-.stAudio audio {
-    width: 100%;
-    filter: invert(1) hue-rotate(180deg);  /* dark-mode native audio */
-    border-radius: 3px;
+/* ── Stat pills ── */
+.stat-row { display: flex; gap: 12px; margin-bottom: 28px; }
+.stat-pill {
+    flex: 1;
+    background: #13131a;
+    border: 1px solid #1e1e28;
+    padding: 14px 18px;
 }
+.stat-k {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim2);
+    margin-bottom: 5px;
+}
+.stat-v {
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--amber);
+}
+
+/* ── Callout / annotation box ── */
+.callout {
+    background: #13131a;
+    border: 1px solid #1e1e28;
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-top: 12px;
+}
+.callout-head {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 6px;
+}
+.callout-body {
+    font-family: var(--display);
+    font-size: 12px;
+    color: var(--dim2);
+    line-height: 1.6;
+}
+.callout-body b { color: var(--text); font-weight: 600; }
 
 /* ── Expander ── */
 [data-testid="stExpander"] {
-    background: #141414 !important;
-    border: 1px solid #222 !important;
-    border-radius: 3px !important;
+    background: #13131a !important;
+    border: 1px solid #1e1e28 !important;
+    border-radius: 4px !important;
 }
-[data-testid="stExpander"] summary {
+details summary {
     font-family: var(--mono) !important;
-    font-size: 11px !important;
-    color: var(--dim) !important;
-    text-transform: uppercase !important;
+    font-size: 10px !important;
     letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    color: var(--dim2) !important;
 }
 
 /* ── Tables ── */
-[data-testid="stDataFrame"] {
-    border: 1px solid #222 !important;
-    border-radius: 3px !important;
-}
-thead th {
-    background: #1a1a1a !important;
+[data-testid="stDataFrame"] { border: 1px solid #1e1e28 !important; border-radius: 4px !important; }
+thead tr th {
+    background: #13131a !important;
     font-family: var(--mono) !important;
     font-size: 10px !important;
     text-transform: uppercase !important;
     letter-spacing: 0.1em !important;
-    color: var(--dim) !important;
+    color: var(--dim2) !important;
 }
-tbody td {
+tbody tr td {
     font-family: var(--mono) !important;
     font-size: 12px !important;
     color: var(--text) !important;
 }
 
-/* ── Progress bar ── */
-[data-testid="stProgressBar"] > div > div {
-    background: var(--accent) !important;
-}
+/* ── Progress ── */
+[data-testid="stProgressBar"] > div > div { background: var(--amber) !important; }
 
-/* ── Alerts ── */
+/* ── Audio player ── */
+.stAudio audio { filter: invert(0.85) sepia(0.2); border-radius: 3px; }
+
+/* ── Alerts / spinner ── */
 [data-testid="stAlert"] {
-    background: #141414 !important;
-    border-radius: 3px !important;
+    background: #13131a !important;
+    border-radius: 4px !important;
     font-family: var(--mono) !important;
     font-size: 12px !important;
 }
+[data-testid="stSpinner"] p {
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
+    color: var(--dim2) !important;
+}
 
-/* ── Spinner ── */
-[data-testid="stSpinner"] p { font-family: var(--mono) !important; font-size: 12px !important; color: var(--dim) !important; }
+/* ── Divider ── */
+hr { border: none !important; border-top: 1px solid #1e1e28 !important; margin: 32px 0 !important; }
 
-/* Divider */
-hr { border-color: #222 !important; margin: 28px 0 !important; }
+/* Song list */
+.song-row {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim2);
+    padding: 5px 0;
+    border-bottom: 1px solid #1a1a22;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.song-row::before {
+    content: '▸';
+    color: var(--amber);
+    font-size: 9px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-
-# ── DB loading ───────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# DB loading
+# ══════════════════════════════════════════════════════════════════════════════
 @st.cache_resource(show_spinner=False)
 def load_db():
     if os.path.exists(DB_PATH):
-        with open(DB_PATH, "rb") as f:
-            db = pickle.load(f)
-        return db, "precomputed"
-    elif os.path.isdir(SONGS_DIR) and any(
+        try:
+            with open(DB_PATH, "rb") as f:
+                db = pickle.load(f)
+            return db, "precomputed"
+        except (EOFError, pickle.UnpicklingError):
+            pass
+    if os.path.isdir(SONGS_DIR) and any(
         f.lower().endswith((".mp3", ".wav", ".m4a")) for f in os.listdir(SONGS_DIR)
     ):
         db = FingerprintDB(win_length=WIN_LENGTH, hop_length=HOP_LENGTH, sr=SR)
@@ -324,197 +408,382 @@ def load_db():
         return db, "built_live"
     return None, "missing"
 
-
 def save_upload_to_tmp(uf):
     suffix = os.path.splitext(uf.name)[1] or ".mp3"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(uf.getbuffer())
         return tmp.name
 
-
-# ── Plots ────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# Matplotlib dark theme
+# ══════════════════════════════════════════════════════════════════════════════
 RC = {
-    "figure.facecolor": "#141414",
-    "axes.facecolor":   "#0d0d0d",
-    "axes.edgecolor":   "#2a2a2a",
-    "axes.labelcolor":  "#666",
-    "xtick.color":      "#555",
-    "ytick.color":      "#555",
-    "text.color":       "#e8e8e8",
-    "grid.color":       "#1f1f1f",
+    "figure.facecolor":  "#13131a",
+    "axes.facecolor":    "#0c0c0f",
+    "axes.edgecolor":    "#2a2a38",
+    "axes.labelcolor":   "#71717a",
+    "axes.titlecolor":   "#a1a1aa",
+    "xtick.color":       "#52525b",
+    "ytick.color":       "#52525b",
+    "xtick.labelsize":   8,
+    "ytick.labelsize":   8,
+    "axes.labelsize":    9,
+    "axes.titlesize":    10,
+    "text.color":        "#d4d4d8",
+    "grid.color":        "#1e1e28",
+    "grid.linestyle":    "--",
+    "grid.linewidth":    0.5,
+    "font.family":       "monospace",
 }
 
-def plot_spectrogram(y, sr, win_length, hop_length):
+AMBER  = "#ff8c42"
+DIM    = "#52525b"
+DIM2   = "#71717a"
+TEXT   = "#d4d4d8"
+BG0    = "#0c0c0f"
+BG1    = "#13131a"
+
+
+def fig_spectrogram(y, sr, win_length, hop_length):
+    """Spectrogram + constellation overlay, with a dB colorbar."""
     freqs, times, S_db = spectrogram_db(y, sr, win_length, hop_length)
     peaks = find_constellation_peaks(S_db, freqs, times)
+
     with plt.rc_context(RC):
-        fig, ax = plt.subplots(figsize=(7, 3.5))
-        ax.pcolormesh(times, freqs, S_db, shading="auto", cmap="inferno", vmin=-80, vmax=0)
+        fig = plt.figure(figsize=(9, 4.2), constrained_layout=True)
+        gs  = gridspec.GridSpec(1, 2, figure=fig, width_ratios=[20, 1], wspace=0.04)
+        ax  = fig.add_subplot(gs[0])
+        cax = fig.add_subplot(gs[1])
+
+        im = ax.pcolormesh(
+            times, freqs / 1000, S_db,   # kHz on y
+            shading="auto", cmap="inferno", vmin=-80, vmax=0, rasterized=True
+        )
+        # constellation
         if peaks:
-            ax.scatter([p["time_s"] for p in peaks], [p["freq_hz"] for p in peaks],
-                       s=14, facecolors="none", edgecolors="#e8ff47", linewidths=0.8, alpha=0.9)
-        ax.set_ylim(0, min(5000, sr / 2))
-        ax.set_title(f"spectrogram + {len(peaks)} peaks", fontsize=9, color="#666",
-                     fontfamily="monospace", pad=8)
-        ax.set_xlabel("time (s)", fontsize=8)
-        ax.set_ylabel("freq (Hz)", fontsize=8)
-        fig.tight_layout(pad=1.2)
-    return fig, peaks
+            pt = [p["time_s"]  for p in peaks]
+            pf = [p["freq_hz"] / 1000 for p in peaks]
+            ax.scatter(pt, pf, s=22, facecolors="none",
+                       edgecolors=AMBER, linewidths=0.9, alpha=0.85, zorder=3)
+
+        ax.set_ylim(0, min(5000, sr / 2) / 1000)
+        ax.set_xlabel("time  (s)")
+        ax.set_ylabel("frequency  (kHz)")
+        ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.1f"))
+        ax.grid(True, alpha=0.4)
+
+        cb = fig.colorbar(im, cax=cax)
+        cb.set_label("dB", color=DIM2, fontsize=8)
+        cb.ax.yaxis.set_tick_params(color=DIM2, labelsize=7)
+        plt.setp(cb.ax.yaxis.get_ticklabels(), color=DIM2)
+
+        # annotation for peak count
+        ax.text(0.01, 0.97,
+                f"{len(peaks)} peaks",
+                transform=ax.transAxes, va="top", ha="left",
+                fontsize=8, color=AMBER,
+                bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#2a2a38", alpha=0.9))
+
+    return fig, peaks, freqs, times, S_db
 
 
-def plot_histogram(histogram, best_name):
+def fig_histogram(histogram, best_name, best_votes, runner_votes):
+    """
+    3-panel layout:
+      Left  — full offset histogram (log scale), all songs overlaid faintly
+      Right — zoom window around the winning offset
+    """
     with plt.rc_context(RC):
-        fig, axes = plt.subplots(1, 2, figsize=(8, 3.2))
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.8),
+                                        gridspec_kw={"width_ratios": [3, 2]})
+        fig.subplots_adjust(wspace=0.35)
+
         if not histogram:
-            for ax in axes:
-                ax.text(0.5, 0.5, "no matching hashes", ha="center", va="center",
-                        color="#444", fontsize=9, fontfamily="monospace")
-                ax.set_facecolor("#0d0d0d")
-            fig.tight_layout(pad=1.2)
+            for ax in (ax1, ax2):
+                ax.text(0.5, 0.5, "no matching hashes",
+                        ha="center", va="center", color=DIM2)
             return fig
-        offs = sorted(histogram.keys())
+
+        offs   = sorted(histogram.keys())
         counts = [histogram[o] for o in offs]
         best_off = max(histogram, key=histogram.get)
+        peak_count = histogram[best_off]
 
-        axes[0].bar(offs, counts, width=3.0, color="#e8ff47", alpha=0.7)
-        axes[0].set_yscale("log")
-        axes[0].axvline(best_off, color="#fff", alpha=0.15, lw=10, zorder=0)
-        axes[0].set_title("offset histogram", fontsize=9, color="#666", fontfamily="monospace", pad=6)
-        axes[0].set_xlabel("offset (frames)", fontsize=8)
-        axes[0].set_ylabel("votes", fontsize=8)
+        # ── left: full histogram ──
+        ax1.bar(offs, counts, width=max(1, (max(offs)-min(offs))/len(offs)*0.9),
+                color=AMBER, alpha=0.55, zorder=2)
+        ax1.axvline(best_off, color="#fff", lw=1.2, alpha=0.25, zorder=3)
+        ax1.set_yscale("log")
+        ax1.set_xlabel("time offset  (frames)")
+        ax1.set_ylabel("votes  (log)")
+        ax1.grid(True, axis="y", alpha=0.3)
 
-        w = 40
+        # highlight the peak bar
+        ax1.bar([best_off], [peak_count],
+                width=max(1, (max(offs)-min(offs))/len(offs)*0.9),
+                color=AMBER, alpha=1.0, zorder=4)
+
+        ax1.text(0.98, 0.97, f"peak @ {best_off}",
+                 transform=ax1.transAxes, va="top", ha="right",
+                 fontsize=8, color=AMBER,
+                 bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#2a2a38", alpha=0.9))
+
+        # ── right: zoomed ──
+        w    = 60
         zoom = [o for o in offs if abs(o - best_off) <= w]
-        axes[1].bar(zoom, [histogram[o] for o in zoom], width=1.0, color="#e8ff47", alpha=0.9)
-        axes[1].set_title(f"zoom · {histogram[best_off]} votes at {best_off}",
-                          fontsize=9, color="#666", fontfamily="monospace", pad=6)
-        axes[1].set_xlabel("offset (frames)", fontsize=8)
-        axes[1].set_ylabel("votes", fontsize=8)
+        zcnt = [histogram[o] for o in zoom]
 
-        fig.tight_layout(pad=1.2)
+        # bar width: 1 if dense, else a bit wider
+        bw = max(1, w // max(len(zoom), 1))
+        ax2.bar(zoom, zcnt, width=bw, color=DIM2, alpha=0.5, zorder=2)
+        ax2.bar([best_off], [peak_count], width=bw, color=AMBER, alpha=1.0, zorder=3)
+        ax2.axvline(best_off, color="#fff", lw=1, alpha=0.2)
+        ax2.set_xlabel("time offset  (frames)")
+        ax2.set_ylabel("votes")
+        ax2.grid(True, axis="y", alpha=0.3)
+
+        title_txt = f"zoom ±{w} frames · {peak_count} votes"
+        ax2.set_title(title_txt, color=DIM2, fontsize=9, pad=6)
+
     return fig
 
 
-# ── State ────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# State
+# ══════════════════════════════════════════════════════════════════════════════
 if "mode" not in st.session_state:
     st.session_state.mode = "single"
 
 db, db_status = load_db()
+song_count = len(db.songs) if db else 0
+led_color  = "#4ade80" if db_status != "missing" else "#f87171"
+db_label   = f"{song_count} songs indexed" if db_status != "missing" else "no database"
 
-song_count  = len(db.songs) if db else 0
-dot_color   = "#4cff91" if db_status != "missing" else "#ff4545"
-db_label    = f"{song_count} tracks" if db_status != "missing" else "no db"
-mode_label  = "single clip" if st.session_state.mode == "single" else "batch"
-
-# ── Fixed navbar (pure HTML, no Streamlit widget) ────────────────────────
+# ── Top bar ──────────────────────────────────────────────────────────────────
 st.markdown(f"""
-<div class="zn">
-  <span class="zn-brand">Zapp-tain</span>
-  <span class="zn-sep">/</span>
-  <span class="zn-mode">{mode_label}</span>
-  <div class="zn-right">
-    <span class="zn-dot" style="background:{dot_color}"></span>{db_label}
+<div class="topbar">
+  <div class="topbar-wordmark">ZAPP<span>·</span>TAIN</div>
+  <div class="topbar-rule"></div>
+  <div class="topbar-db">
+    <span class="db-led" style="background:{led_color};
+          box-shadow:0 0 6px {led_color}88;"></span>
+    {db_label}
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ── DB missing hard stop ─────────────────────────────────────────────────
+# ── Page shell ────────────────────────────────────────────────────────────────
+st.markdown('<div class="page-shell">', unsafe_allow_html=True)
+
 if db_status == "missing":
-    st.error("No database. Add mp3s to `songs/` → `python build_database.py`.")
+    st.error("No song database. Add mp3s to `songs/` → run `python build_database.py`.")
     st.stop()
-
 if db_status == "built_live":
-    st.warning("Indexed live at startup (no fingerprint_db.pkl found).")
+    st.warning("Indexed songs live at startup (no precomputed fingerprint_db.pkl found).")
 
-# ── Mode switcher (real Streamlit buttons, styled as tabs) ───────────────
+# ── Mode tabs (Streamlit buttons styled as tabs) ──────────────────────────────
 c1, c2, _ = st.columns([1, 1, 8])
 with c1:
-    if st.button("Single clip", key="ms"):
+    if st.button("Single clip", key="t1"):
         st.session_state.mode = "single"
 with c2:
-    if st.button("Batch", key="mb"):
+    if st.button("Batch", key="t2"):
         st.session_state.mode = "batch"
 
 mode = st.session_state.mode
+st.markdown("<hr>", unsafe_allow_html=True)
 
-st.markdown("---")
-
-# ════════════════════════════════════════════════════════════════════════
-# SINGLE CLIP
-# ════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# SINGLE-CLIP MODE
+# ══════════════════════════════════════════════════════════════════════════════
 if mode == "single":
-    st.markdown('<div class="sec-label">Upload query clip</div>', unsafe_allow_html=True)
-    uploaded = st.file_uploader("clip", type=["mp3", "wav", "m4a", "flac"],
-                                label_visibility="collapsed")
+
+    st.markdown("""
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <span class="sec-title">Upload query clip</span>
+      <span class="sec-line"></span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    uploaded = st.file_uploader(
+        "clip", type=["mp3", "wav", "m4a", "flac"],
+        label_visibility="collapsed"
+    )
 
     if uploaded:
         tmp = save_upload_to_tmp(uploaded)
         try:
-            with st.spinner("decoding…"):
+            with st.spinner("decoding audio…"):
                 y, sr = load_audio(tmp, sr=SR)
             st.audio(uploaded)
 
-            with st.spinner("fingerprinting…"):
+            with st.spinner("fingerprinting and matching…"):
                 result = db.match(y, mode="paired")
 
-            best = result["best"]
+            best       = result["best"]
+            histogram  = result["histogram"]
+            ranked     = result["ranked"]
+
+            # ── Result ───────────────────────────────────────────────────────
+            st.markdown("""
+            <div class="sec-head" style="margin-top:28px">
+              <span class="sec-num">02</span>
+              <span class="sec-title">Identification result</span>
+              <span class="sec-line"></span>
+            </div>
+            """, unsafe_allow_html=True)
 
             if best is None:
-                st.markdown('<div class="no-match">✕ no match found</div>', unsafe_allow_html=True)
+                st.markdown('<div class="no-match-block">✕ no match — clip does not correspond to any indexed song</div>',
+                            unsafe_allow_html=True)
             else:
-                top_votes = result["ranked"][0][2]
-                runner_up = result["ranked"][1][2] if len(result["ranked"]) > 1 else 0
+                top_votes = ranked[0][2]
+                runner_up = ranked[1][2] if len(ranked) > 1 else 0
+                ratio     = f"{top_votes/max(runner_up,1):.1f}×" if runner_up else "—"
+
                 st.markdown(f"""
-                <div class="res-strip">
-                  <span class="res-strip-label">identified</span>
-                  <span class="res-strip-name">{best}</span>
-                </div>
-                <div class="stat-grid">
-                  <div class="stat-cell">
-                    <div class="stat-key">best offset votes</div>
-                    <div class="stat-val">{top_votes}</div>
+                <div class="match-block">
+                  <div>
+                    <div class="match-tag">identified song</div>
+                    <div class="match-name">{best}</div>
                   </div>
-                  <div class="stat-cell">
-                    <div class="stat-key">runner-up votes</div>
-                    <div class="stat-val">{runner_up}</div>
+                </div>
+                <div class="stat-row">
+                  <div class="stat-pill">
+                    <div class="stat-k">best offset votes</div>
+                    <div class="stat-v">{top_votes}</div>
+                  </div>
+                  <div class="stat-pill">
+                    <div class="stat-k">runner-up votes</div>
+                    <div class="stat-v">{runner_up}</div>
+                  </div>
+                  <div class="stat-pill">
+                    <div class="stat-k">confidence ratio</div>
+                    <div class="stat-v">{ratio}</div>
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
 
                 with st.expander("all candidates"):
                     st.table(pd.DataFrame(
-                        [(n, v) for _, n, v in result["ranked"]],
+                        [(n, v) for _, n, v in ranked],
                         columns=["song", "votes"],
                     ))
 
-            st.markdown('<div class="sec-label" style="margin-top:8px">Analysis</div>', unsafe_allow_html=True)
-            col1, col2 = st.columns(2, gap="medium")
-            with col1:
-                fig1, _ = plot_spectrogram(y, sr, WIN_LENGTH, HOP_LENGTH)
-                st.pyplot(fig1); plt.close(fig1)
-            with col2:
-                fig2 = plot_histogram(result["histogram"], best or "—")
-                st.pyplot(fig2); plt.close(fig2)
+            # ── Intermediate steps ────────────────────────────────────────────
+            st.markdown("""
+            <div class="sec-head" style="margin-top:28px">
+              <span class="sec-num">03</span>
+              <span class="sec-title">Intermediate steps</span>
+              <span class="sec-line"></span>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Step A: spectrogram + constellation
+            st.markdown("""
+            <div class="callout">
+              <div class="callout-head">A — Spectrogram &amp; constellation map</div>
+              <div class="callout-body">
+                The audio is divided into short, overlapping windows (<b>win={win}</b> samples,
+                hop=<b>{hop}</b> samples at {sr} Hz). Each window is multiplied by a
+                <b>Hann taper</b> to suppress spectral leakage, then passed through an FFT.
+                Stacking these column-by-column gives the time–frequency power map below.
+                <b>Orange circles</b> mark the <em>constellation peaks</em> — local maxima
+                that exceed the neighbourhood and a −40 dB floor, thinned to at most
+                5 per time-frame. These sparse landmarks are what gets fingerprinted.
+              </div>
+            </div>
+            """.format(win=WIN_LENGTH, hop=HOP_LENGTH, sr=SR), unsafe_allow_html=True)
+
+            fig_s, peaks, freqs, times, S_db = fig_spectrogram(y, sr, WIN_LENGTH, HOP_LENGTH)
+            st.pyplot(fig_s)
+            plt.close(fig_s)
+
+            freq_res = SR / WIN_LENGTH
+            time_res = HOP_LENGTH / SR * 1000
+            st.markdown(f"""
+            <div class="stat-row" style="margin-top:10px">
+              <div class="stat-pill">
+                <div class="stat-k">constellation peaks</div>
+                <div class="stat-v">{len(peaks)}</div>
+              </div>
+              <div class="stat-pill">
+                <div class="stat-k">freq resolution</div>
+                <div class="stat-v">{freq_res:.1f} Hz/bin</div>
+              </div>
+              <div class="stat-pill">
+                <div class="stat-k">time resolution</div>
+                <div class="stat-v">{time_res:.1f} ms/frame</div>
+              </div>
+              <div class="stat-pill">
+                <div class="stat-k">clip duration</div>
+                <div class="stat-v">{len(y)/SR:.2f} s</div>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("<hr>", unsafe_allow_html=True)
+
+            # Step B: offset histogram
+            st.markdown("""
+            <div class="callout">
+              <div class="callout-head">B — Combinatorial hashing &amp; offset histogram</div>
+              <div class="callout-body">
+                Each constellation peak is <b>paired</b> with up to 10 later peaks within a
+                target zone of [1, 100] frames. Each pair produces a hash
+                <em>(f₁_bin, f₂_bin, Δt)</em>. These hashes are looked up in the database;
+                for every match the <b>time offset</b> = db_frame − query_frame is recorded.
+                A true match accumulates votes at <b>one consistent offset</b> (the spike),
+                while false songs scatter votes randomly across all offsets.
+                The song with the highest single-offset vote count wins.
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            top_v = ranked[0][2] if ranked else 0
+            run_v = ranked[1][2] if len(ranked) > 1 else 0
+            fig_h = fig_histogram(histogram, best or "—", top_v, run_v)
+            st.pyplot(fig_h)
+            plt.close(fig_h)
 
         finally:
             os.remove(tmp)
 
-# ════════════════════════════════════════════════════════════════════════
-# BATCH
-# ════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# BATCH MODE
+# ══════════════════════════════════════════════════════════════════════════════
 else:
-    st.markdown('<div class="sec-label">Upload clips</div>', unsafe_allow_html=True)
-    uploads = st.file_uploader("clips", type=["mp3", "wav", "m4a", "flac"],
-                               accept_multiple_files=True, label_visibility="collapsed")
+    st.markdown("""
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <span class="sec-title">Upload query clips</span>
+      <span class="sec-line"></span>
+    </div>
+    <div class="callout" style="margin-bottom:20px">
+      <div class="callout-head">Batch mode</div>
+      <div class="callout-body">
+        Upload any number of clips. Each is fingerprinted and matched independently.
+        The output <b>results.csv</b> contains two columns:
+        <b>filename</b> (original upload name) and <b>prediction</b>
+        (matched song filename without extension, blank if no match).
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    if uploads and st.button(f"Run — {len(uploads)} clips"):
+    uploads = st.file_uploader(
+        "clips", type=["mp3", "wav", "m4a", "flac"],
+        accept_multiple_files=True, label_visibility="collapsed"
+    )
+
+    if uploads and st.button(f"Run on {len(uploads)} clip{'s' if len(uploads)!=1 else ''}"):
         rows = []
-        bar = st.progress(0.0, text="")
+        bar  = st.progress(0.0, text="")
         for i, uf in enumerate(uploads):
             tmp = save_upload_to_tmp(uf)
             try:
-                y, sr_f = load_audio(tmp, sr=SR)
-                res = db.match(y, mode="paired")
+                y, _ = load_audio(tmp, sr=SR)
+                res  = db.match(y, mode="paired")
                 rows.append({"filename": uf.name, "prediction": res["best"] or ""})
             except Exception as e:
                 rows.append({"filename": uf.name, "prediction": ""})
@@ -524,17 +793,26 @@ else:
             bar.progress((i + 1) / len(uploads), text=f"{uf.name}")
 
         df = pd.DataFrame(rows, columns=["filename", "prediction"])
-        st.markdown('<div class="sec-label" style="margin-top:12px">Results</div>', unsafe_allow_html=True)
-        st.dataframe(df, use_container_width=True)
-        st.download_button("Download results.csv", df.to_csv(index=False).encode(),
-                           "results.csv", "text/csv")
 
-# ── Footer: indexed songs ────────────────────────────────────────────────
-st.markdown("---")
+        st.markdown("""
+        <div class="sec-head" style="margin-top:28px">
+          <span class="sec-num">02</span>
+          <span class="sec-title">Results</span>
+          <span class="sec-line"></span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.dataframe(df, use_container_width=True)
+        st.download_button(
+            "Download results.csv",
+            df.to_csv(index=False).encode(),
+            "results.csv", "text/csv"
+        )
+
+# ── Footer: indexed songs ─────────────────────────────────────────────────────
+st.markdown("<hr>", unsafe_allow_html=True)
 with st.expander(f"indexed songs  ({song_count})"):
     for name in db.songs.values():
-        st.markdown(
-            f'<div style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;'
-            f'color:#555;padding:3px 0;border-bottom:1px solid #1a1a1a">{name}</div>',
-            unsafe_allow_html=True
-        )
+        st.markdown(f'<div class="song-row">{name}</div>', unsafe_allow_html=True)
+
+st.markdown("</div>", unsafe_allow_html=True)  # .page-shell
