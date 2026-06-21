@@ -369,7 +369,7 @@ tbody tr td {
 /* ── Divider ── */
 hr { border: none !important; border-top: 1px solid #1e1e28 !important; margin: 32px 0 !important; }
 
-/* Song list */
+/* ── Song list */
 .song-row {
     font-family: var(--mono);
     font-size: 11px;
@@ -385,6 +385,82 @@ hr { border: none !important; border-top: 1px solid #1e1e28 !important; margin: 
     color: var(--amber);
     font-size: 9px;
 }
+
+/* ── Hero ── */
+.hero {
+    padding: 48px 0 44px;
+    border-bottom: 1px solid #1e1e28;
+    margin-bottom: 36px;
+}
+.hero-kicker {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 18px;
+}
+.hero-title {
+    font-family: var(--display);
+    font-size: clamp(52px, 8vw, 88px);
+    font-weight: 800;
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    color: #fff;
+    margin: 0 0 28px;
+}
+.hero-title span { color: var(--amber); }
+.hero-desc {
+    font-family: var(--display);
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--dim2);
+    max-width: 560px;
+    margin: 0 0 36px;
+}
+.hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+.hero-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0 24px 0 0;
+}
+.hero-meta-item:first-child { padding-left: 0; }
+.hero-meta-k {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--dim);
+}
+.hero-meta-v {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+.hero-meta-divider {
+    width: 1px;
+    height: 28px;
+    background: #2a2a38;
+    margin: 0 24px 0 0;
+    flex-shrink: 0;
+}
+.hero-tracklist {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0.04em;
+    padding-top: 16px;
+    border-top: 1px solid #1e1e28;
+    margin-top: 8px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -397,14 +473,21 @@ def load_db():
         try:
             with open(DB_PATH, "rb") as f:
                 db = pickle.load(f)
-            return db, "precomputed"
-        except (EOFError, pickle.UnpicklingError):
-            pass
+            if hasattr(db, "songs") and len(db.songs) > 0:
+                return db, "precomputed"
+        except Exception:
+            pass  # corrupt / Python version mismatch — rebuild below
     if os.path.isdir(SONGS_DIR) and any(
         f.lower().endswith((".mp3", ".wav", ".m4a")) for f in os.listdir(SONGS_DIR)
     ):
         db = FingerprintDB(win_length=WIN_LENGTH, hop_length=HOP_LENGTH, sr=SR)
         db.build_from_folder(SONGS_DIR)
+        try:  # overwrite stale pkl with a fresh one for next run
+            os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+            with open(DB_PATH, "wb") as f:
+                pickle.dump(db, f)
+        except Exception:
+            pass
         return db, "built_live"
     return None, "missing"
 
@@ -459,12 +542,12 @@ def fig_spectrogram(y, sr, win_length, hop_length):
             times, freqs / 1000, S_db,   # kHz on y
             shading="auto", cmap="inferno", vmin=-80, vmax=0, rasterized=True
         )
-        # constellation
+        # constellation — bright cyan pops off inferno's orange/purple palette
         if peaks:
             pt = [p["time_s"]  for p in peaks]
             pf = [p["freq_hz"] / 1000 for p in peaks]
-            ax.scatter(pt, pf, s=22, facecolors="none",
-                       edgecolors=AMBER, linewidths=0.9, alpha=0.85, zorder=3)
+            ax.scatter(pt, pf, s=26, facecolors="none",
+                       edgecolors="#00f5d4", linewidths=1.1, alpha=0.9, zorder=3)
 
         ax.set_ylim(0, min(5000, sr / 2) / 1000)
         ax.set_xlabel("time  (s)")
@@ -578,10 +661,50 @@ st.markdown('<div class="page-shell">', unsafe_allow_html=True)
 if db_status == "missing":
     st.error("No song database. Add mp3s to `songs/` → run `python build_database.py`.")
     st.stop()
-if db_status == "built_live":
-    st.warning("Indexed songs live at startup (no precomputed fingerprint_db.pkl found).")
 
-# ── Mode tabs (Streamlit buttons styled as tabs) ──────────────────────────────
+# ── Hero ─────────────────────────────────────────────────────────────────────
+song_names = list(db.songs.values())
+song_list_inline = "  ·  ".join(song_names)
+
+st.markdown(f"""
+<div class="hero">
+  <div class="hero-kicker">Audio fingerprinting · Shazam algorithm</div>
+  <h1 class="hero-title">Zapp<span>·</span>tain<br>America</h1>
+  <p class="hero-desc">
+    Upload a short audio clip — even a few seconds over noise — and the
+    system identifies it by matching sparse time–frequency landmarks against
+    a pre-indexed song database. No waveform comparison, no machine learning:
+    just combinatorial hashing and offset voting.
+  </p>
+  <div class="hero-meta">
+    <div class="hero-meta-item">
+      <span class="hero-meta-k">indexed songs</span>
+      <span class="hero-meta-v">{song_count}</span>
+    </div>
+    <div class="hero-meta-divider"></div>
+    <div class="hero-meta-item">
+      <span class="hero-meta-k">window</span>
+      <span class="hero-meta-v">{WIN_LENGTH} samples</span>
+    </div>
+    <div class="hero-meta-divider"></div>
+    <div class="hero-meta-item">
+      <span class="hero-meta-k">sample rate</span>
+      <span class="hero-meta-v">{SR} Hz</span>
+    </div>
+    <div class="hero-meta-divider"></div>
+    <div class="hero-meta-item">
+      <span class="hero-meta-k">hash method</span>
+      <span class="hero-meta-v">paired peaks</span>
+    </div>
+  </div>
+  <div class="hero-tracklist">{song_list_inline}</div>
+</div>
+""", unsafe_allow_html=True)
+
+if db_status == "built_live":
+    st.info("Database re-indexed live at startup — a fresh fingerprint_db.pkl has been saved.")
+
+# ── Mode tabs ─────────────────────────────────────────────────────────────────
 c1, c2, _ = st.columns([1, 1, 8])
 with c1:
     if st.button("Single clip", key="t1"):
@@ -689,7 +812,7 @@ if mode == "single":
                 hop=<b>{hop}</b> samples at {sr} Hz). Each window is multiplied by a
                 <b>Hann taper</b> to suppress spectral leakage, then passed through an FFT.
                 Stacking these column-by-column gives the time–frequency power map below.
-                <b>Orange circles</b> mark the <em>constellation peaks</em> — local maxima
+                <b>Teal circles</b> mark the <em>constellation peaks</em> — local maxima
                 that exceed the neighbourhood and a −40 dB floor, thinned to at most
                 5 per time-frame. These sparse landmarks are what gets fingerprinted.
               </div>
