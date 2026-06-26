@@ -575,8 +575,20 @@ hr {
     border-color: var(--teal) var(--teal) var(--teal) var(--teal) !important;
     background-color: var(--deep) !important;
 }
-[data-testid="stTabs"] [data-baseweb="tab-highlight-indicator"] {
+/* 1. Target the animated indicator strip directly by its styling attribute */
+[data-testid="stTabs"] [role="tablist"] + div,
+[data-testid="stTabs"] [data-baseweb="tab-highlight-indicator"],
+[data-testid="stTabs"] div[style*="background-color: rgb"] {
     background-color: var(--teal) !important;
+    background: var(--teal) !important;
+}
+
+/* 2. Clear any lingering native underline colors on the individual tab bases */
+[data-testid="stTabs"] [role="tab"] {
+    border-bottom-color: transparent !important;
+}
+[data-testid="stTabs"] [aria-selected="true"] {
+    border-bottom-color: var(--teal) !important;
 }
 </style>
 """, unsafe_allow_html=True)
