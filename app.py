@@ -572,7 +572,7 @@ hr {
 }
 [data-testid="stTabs"] [aria-selected="true"] {
     color: var(--teal) !important;
-    border-color: var(--teal) var(--teal) var(--teal) var(--teal) !important;
+    border-color: var(--teal) var(--teal) transparent var(--teal) !important;
     background-color: var(--deep) !important;
 }
 /* 1. Target the animated indicator strip directly by its styling attribute */
