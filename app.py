@@ -23,7 +23,7 @@ DB_PATH    = "data/fingerprint_db.pkl"
 SONGS_DIR  = "songs"
 
 st.set_page_config(
-    page_title="AudioTag EE200 Project",
+    page_title="HashFlash EE200 Project",
     page_icon="🎵",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -741,7 +741,7 @@ db_label   = f"{song_count} songs indexed" if db_status != "missing" else "no da
 # ── Top bar ───────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <div class="topbar">
-  <div class="topbar-wordmark">AUDIO<span>TAG</span></div>
+  <div class="topbar-wordmark">HASH<span>FLASH</span></div>
   <div class="topbar-course">EE200</div>
   <div class="topbar-rule"></div>
   <div class="topbar-db">
@@ -765,7 +765,7 @@ song_list_inline = "  ·  ".join(song_names)
 st.markdown(f"""
 <div class="project-header">
   <div class="project-eyebrow">EE200 Course Project · Audio Signal Processing</div>
-  <div class="project-title">Audio<span class="project-title-accent">Tag</span></div>
+  <div class="project-title">Hash<span class="project-title-accent">Flash</span></div>
   <p class="project-subtitle">
     A content-based audio identification system implementing the Shazam landmark hashing algorithm.
     Identifies recordings against an indexed database using sparse time–frequency peaks
@@ -795,7 +795,7 @@ st.markdown(f"""
     <div class="abstract-label">Abstract</div>
     <div class="abstract-text">
       This project implements the audio fingerprinting technique described by Wang (2003), the algorithm
-      underlying Shazam. Audio is converted to a time–frequency spectrogram via short-time Fourier
+      underlying Shazam. Audio is converted to a time-frequency spectrogram via short-time Fourier
       transform with a <b>Hann window ({WIN_LENGTH} samples, {HOP_LENGTH}-sample hop)</b> at
       <b>{SR} Hz</b>. Sparse constellation peaks are extracted from local spectral maxima and
       paired within a target zone to produce compact <b>(f₁, f₂, Δt)</b> hashes. A query clip is
@@ -931,7 +931,7 @@ if mode == "single":
                 The audio is divided into short overlapping windows (<b>win={win}</b> samples,
                 hop=<b>{hop}</b> at {sr} Hz). Each window is multiplied by a <b>Hann taper</b>
                 to suppress spectral leakage, then passed through an FFT. Stacking these
-                column-by-column gives the time–frequency power map below. <b>Teal circles</b>
+                column-by-column gives the time–frequency power map below. <b>Gold circles</b>
                 mark the <em>constellation peaks</em>, local maxima exceeding the neighbourhood
                 and a −40 dB floor, thinned to at most 5 per time-frame. These sparse landmarks
                 are what gets fingerprinted.
@@ -1064,7 +1064,7 @@ st.markdown(f"""
 <div style="padding: 24px 0 8px; font-family: var(--mono); font-size: 9px;
             letter-spacing: 0.14em; color: var(--dim); text-align: center;
             border-top: 1px solid var(--rim); margin-top: 12px;">
-  AUDIOTAG &nbsp;·&nbsp; EE200 Course Project &nbsp;·&nbsp;
+  HASHFLASH &nbsp;·&nbsp; EE200 Course Project &nbsp;·&nbsp;
   Darsh Kedia &amp; Tulip Khatri &nbsp;·&nbsp;
   Wang (2003) landmark hashing
 </div>
