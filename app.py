@@ -591,7 +591,7 @@ hr {
     border-bottom-color: var(--teal) !important;
 }
 div[data-testid="stTabActiveIndicator"] {
-        background-color: GOLD !important;
+        background-color: #c9963a !important;
 }
 </style>
 """, unsafe_allow_html=True)
