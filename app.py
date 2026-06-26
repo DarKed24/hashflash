@@ -1,5 +1,6 @@
 """
-app.py — Zapp-tain America  (audio fingerprinting demo)
+app.py — AudioTag  (audio fingerprinting demo)
+EE200 Course Project · Darsh Kedia & Tulip Khatri
 """
 
 import os
@@ -27,7 +28,7 @@ DB_PATH    = "data/fingerprint_db.pkl"
 SONGS_DIR  = "songs"
 
 st.set_page_config(
-    page_title="Zapp-tain America",
+    page_title="AudioTag — EE200 Project",
     page_icon="🎵",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -36,8 +37,9 @@ st.set_page_config(
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Serif:wght@400;500;600&display=swap');
 
+/* ── Force dark background everywhere ── */
 html, body,
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"],
@@ -45,12 +47,12 @@ html, body,
 [data-testid="stMainBlockContainer"],
 [data-testid="stVerticalBlock"],
 .main, .block-container {
-    background-color: #07060f !important;
-    color: #e4dff0 !important;
+    background-color: #0f1117 !important;
+    color: #dde3ee !important;
 }
 header[data-testid="stHeader"] {
-    background-color: #07060f !important;
-    border-bottom: 1px solid #1e1b2e !important;
+    background-color: #0f1117 !important;
+    border-bottom: 1px solid #1f2535 !important;
 }
 [data-testid="collapsedControl"],
 section[data-testid="stSidebar"] { display: none !important; }
@@ -59,26 +61,27 @@ section[data-testid="stSidebar"] { display: none !important; }
 
 /* ── Design tokens ── */
 :root {
-    --void:      #07060f;
-    --deep:      #0d0c1a;
-    --surface:   #141120;
-    --rim:       #1e1b2e;
-    --rim2:      #2b2645;
-    --amber:     #ff8c42;
-    --amber-lo:  rgba(255,140,66,0.10);
-    --cyan:      #00d4bb;
-    --cyan-lo:   rgba(0,212,187,0.09);
-    --magenta:   #d946ef;
-    --text:      #e4dff0;
-    --muted:     #7a7090;
-    --dim:       #3c3658;
+    --void:      #0f1117;
+    --deep:      #141926;
+    --surface:   #1a2133;
+    --rim:       #1f2d44;
+    --rim2:      #263650;
+    --blue:      #4a90d9;
+    --blue-lo:   rgba(74,144,217,0.10);
+    --teal:      #2eb8a6;
+    --teal-lo:   rgba(46,184,166,0.09);
+    --gold:      #c9963a;
+    --gold-lo:   rgba(201,150,58,0.10);
+    --text:      #dde3ee;
+    --muted:     #6b7a96;
+    --dim:       #2e3d56;
     --ok:        #4ade80;
     --err:       #f87171;
-    --mono:      'JetBrains Mono', monospace;
-    --sans:      'Space Grotesk', sans-serif;
-    --hero-font: 'Bebas Neue', sans-serif;
-    --ramp:      linear-gradient(90deg, #3d1159, #d946ef, #ff8c42, #ffd166);
-    --ramp-v:    linear-gradient(180deg, #3d1159, #d946ef, #ff8c42, #ffd166);
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+    --serif:     'IBM Plex Serif', serif;
+    --rule:      linear-gradient(90deg, #4a90d9, #2eb8a6);
+    --rule-v:    linear-gradient(180deg, #4a90d9, #2eb8a6);
 }
 
 /* ── Layout ── */
@@ -94,37 +97,49 @@ section[data-testid="stSidebar"] { display: none !important; }
     position: fixed;
     top: 0; left: 0; right: 0;
     height: 52px;
-    background: rgba(7, 6, 15, 0.92);
+    background: rgba(15, 17, 23, 0.96);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid #1e1b2e;
+    border-bottom: 1px solid #1f2535;
     display: flex;
     align-items: center;
-    padding: 0 36px;
+    padding: 0 24px;
     z-index: 99999;
-    overflow: hidden;
+    gap: 16px;
 }
 .topbar::after {
     content: '';
     position: absolute;
     bottom: 0; left: 0; right: 0;
-    height: 1px;
-    background: var(--ramp);
-    opacity: 0.45;
+    height: 2px;
+    background: var(--rule);
+    opacity: 0.6;
     pointer-events: none;
 }
 .topbar-wordmark {
-    font-family: var(--hero-font);
-    font-size: 22px;
-    letter-spacing: 0.08em;
-    color: #fff;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--text);
+    white-space: nowrap;
 }
-.topbar-wordmark span { color: var(--amber); }
+.topbar-wordmark span { color: var(--teal); }
+.topbar-course {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    padding: 3px 8px;
+    border: 1px solid var(--rim2);
+    border-radius: 2px;
+    white-space: nowrap;
+}
 .topbar-rule {
     flex: 1;
     height: 1px;
-    background: linear-gradient(90deg, #1e1b2e, transparent);
-    margin: 0 24px;
+    background: linear-gradient(90deg, #1f2535, transparent);
+    min-width: 0;
 }
 .topbar-db {
     font-family: var(--mono);
@@ -134,6 +149,8 @@ section[data-testid="stSidebar"] { display: none !important; }
     display: flex;
     align-items: center;
     gap: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 .db-led {
     width: 6px; height: 6px;
@@ -143,9 +160,13 @@ section[data-testid="stSidebar"] { display: none !important; }
 
 /* ── Page shell ── */
 .page-shell {
-    padding: 76px 44px 64px;
-    max-width: 1100px;
+    padding: 68px 24px 64px;
+    max-width: 960px;
     margin: 0 auto;
+}
+@media (min-width: 640px) {
+    .page-shell { padding: 76px 44px 64px; }
+    .topbar { padding: 0 36px; }
 }
 
 /* ── Buttons ── */
@@ -158,66 +179,79 @@ section[data-testid="stSidebar"] { display: none !important; }
     background: transparent !important;
     color: var(--muted) !important;
     border: 1px solid var(--rim2) !important;
-    border-radius: 3px !important;
+    border-radius: 2px !important;
     padding: 9px 22px !important;
     transition: all 0.15s ease !important;
 }
 .stButton > button:hover {
-    background: var(--amber-lo) !important;
-    color: var(--amber) !important;
-    border-color: var(--amber) !important;
+    background: var(--blue-lo) !important;
+    color: var(--blue) !important;
+    border-color: var(--blue) !important;
+}
+
+/* ── Upload zone — force dark bg and visible text in light mode ── */
+[data-testid="stFileUploaderDropzone"],
+[data-testid="stFileUploaderDropzone"] * {
+    background: var(--deep) !important;
+    color: var(--muted) !important;
+}
+[data-testid="stFileUploaderDropzone"] {
+    border: 1px dashed var(--rim2) !important;
+    border-radius: 4px !important;
+    transition: border-color 0.2s !important;
+}
+[data-testid="stFileUploaderDropzone"]:hover {
+    border-color: var(--teal) !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] span,
+[data-testid="stFileUploaderDropzoneInstructions"] p,
+[data-testid="stFileUploaderDropzoneInstructions"] small,
+[data-testid="stFileUploaderDropzoneInstructions"] div {
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
+    color: var(--muted) !important;
+    background: transparent !important;
+}
+/* Browse files button inside uploader */
+[data-testid="stFileUploaderDropzone"] button,
+[data-testid="stFileUploaderDropzone"] button span {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--rim2) !important;
 }
 
 /* ── Section heads ── */
 .sec-head {
     display: flex;
     align-items: center;
-    gap: 14px;
-    margin: 0 0 22px;
+    gap: 12px;
+    margin: 0 0 20px;
+    flex-wrap: wrap;
 }
 .sec-label {
     font-family: var(--mono);
     font-size: 9px;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--cyan);
+    color: var(--teal);
     flex-shrink: 0;
-    padding: 3px 9px;
-    border: 1px solid rgba(0,212,187,0.22);
+    padding: 3px 8px;
+    border: 1px solid rgba(46,184,166,0.25);
     border-radius: 2px;
 }
 .sec-title {
     font-family: var(--sans);
     font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text);
 }
 .sec-line {
     flex: 1;
     height: 1px;
-    background: linear-gradient(90deg, #1e1b2e, transparent);
-}
-
-/* ── Upload zone ── */
-[data-testid="stFileUploaderDropzone"] {
-    background: var(--deep) !important;
-    border: 1px dashed var(--rim2) !important;
-    border-radius: 4px !important;
-    transition: border-color 0.2s !important;
-}
-[data-testid="stFileUploaderDropzone"]:hover {
-    border-color: var(--cyan) !important;
-}
-[data-testid="stFileUploaderDropzoneInstructions"] span {
-    font-family: var(--mono) !important;
-    font-size: 11px !important;
-    color: var(--muted) !important;
-}
-[data-testid="stFileUploaderDropzoneInstructions"] small {
-    font-family: var(--mono) !important;
-    color: var(--dim) !important;
+    background: linear-gradient(90deg, #1f2535, transparent);
+    min-width: 40px;
 }
 
 /* ── Match result ── */
@@ -228,38 +262,40 @@ section[data-testid="stSidebar"] { display: none !important; }
     border-left: none;
     border-radius: 4px;
     overflow: hidden;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 .match-ramp-strip {
     width: 3px;
     flex-shrink: 0;
-    background: var(--ramp-v);
+    background: var(--rule-v);
 }
 .match-inner {
-    padding: 22px 26px;
+    padding: 20px 24px;
     flex: 1;
+    min-width: 0;
 }
 .match-tag {
     font-family: var(--mono);
     font-size: 9px;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--cyan);
-    margin-bottom: 7px;
+    color: var(--teal);
+    margin-bottom: 6px;
 }
 .match-name {
-    font-family: var(--hero-font);
-    font-size: 42px;
-    letter-spacing: 0.04em;
-    color: #fff;
-    line-height: 1;
+    font-family: var(--serif);
+    font-size: clamp(24px, 5vw, 38px);
+    letter-spacing: 0.01em;
+    color: var(--text);
+    line-height: 1.15;
+    word-break: break-word;
 }
 .no-match-block {
     background: var(--deep);
     border: 1px solid rgba(248,113,113,0.2);
     border-left: 3px solid var(--err);
-    padding: 16px 20px;
-    margin-bottom: 24px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
     font-family: var(--mono);
     font-size: 11px;
     color: var(--err);
@@ -267,13 +303,17 @@ section[data-testid="stSidebar"] { display: none !important; }
 }
 
 /* ── Stat pills ── */
-.stat-row { display: flex; gap: 10px; margin-bottom: 24px; }
+.stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    margin-bottom: 20px;
+}
 .stat-pill {
-    flex: 1;
     background: var(--deep);
     border: 1px solid var(--rim);
     border-radius: 4px;
-    padding: 16px 18px;
+    padding: 14px 16px;
     position: relative;
     overflow: hidden;
 }
@@ -282,22 +322,22 @@ section[data-testid="stSidebar"] { display: none !important; }
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 2px;
-    background: var(--ramp);
-    opacity: 0.55;
+    background: var(--rule);
+    opacity: 0.5;
 }
 .stat-k {
     font-family: var(--mono);
     font-size: 8px;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--muted);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 .stat-v {
     font-family: var(--mono);
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--amber);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--blue);
 }
 
 /* ── Callout boxes ── */
@@ -305,21 +345,21 @@ section[data-testid="stSidebar"] { display: none !important; }
     background: var(--deep);
     border: 1px solid var(--rim);
     border-radius: 4px;
-    padding: 16px 20px;
+    padding: 16px 18px;
     margin-bottom: 16px;
 }
 .callout-head {
     font-family: var(--mono);
     font-size: 9px;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--amber);
+    color: var(--gold);
     margin-bottom: 8px;
 }
 .callout-body {
     font-family: var(--sans);
     font-size: 13px;
-    line-height: 1.72;
+    line-height: 1.75;
     color: var(--muted);
     font-weight: 300;
 }
@@ -359,10 +399,10 @@ tbody tr td {
 }
 
 /* ── Progress ── */
-[data-testid="stProgressBar"] > div > div { background: var(--amber) !important; }
+[data-testid="stProgressBar"] > div > div { background: var(--teal) !important; }
 
 /* ── Audio player ── */
-.stAudio audio { filter: invert(0.85) sepia(0.2); border-radius: 3px; }
+.stAudio audio { filter: invert(0.85) sepia(0.1); border-radius: 3px; }
 
 /* ── Alerts / spinner ── */
 [data-testid="stAlert"] {
@@ -370,6 +410,7 @@ tbody tr td {
     border-radius: 4px !important;
     font-family: var(--mono) !important;
     font-size: 11px !important;
+    color: var(--text) !important;
 }
 [data-testid="stSpinner"] p {
     font-family: var(--mono) !important;
@@ -381,7 +422,7 @@ tbody tr td {
 hr {
     border: none !important;
     border-top: 1px solid var(--rim) !important;
-    margin: 36px 0 !important;
+    margin: 32px 0 !important;
 }
 
 /* ── Song list ── */
@@ -396,117 +437,145 @@ hr {
     gap: 10px;
 }
 .song-row::before {
-    content: '▶';
-    color: var(--amber);
-    font-size: 7px;
+    content: '▸';
+    color: var(--teal);
+    font-size: 8px;
 }
 
-/* ── Hero ── */
-.hero {
-    padding: 52px 0 50px;
-    margin-bottom: 40px;
+/* ── Header block ── */
+.project-header {
+    padding: 44px 0 36px;
+    margin-bottom: 36px;
+    border-bottom: 1px solid var(--rim);
     position: relative;
-    overflow: hidden;
 }
-/* scanning line — mimics a spectrogram sweep */
-.hero-scan {
+.project-header::before {
+    content: '';
     position: absolute;
-    left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 0%, var(--cyan) 50%, transparent 100%);
-    animation: heroscan 9s linear infinite;
-    pointer-events: none;
+    bottom: -1px; left: 0;
+    width: 80px; height: 2px;
+    background: var(--rule);
 }
-@keyframes heroscan {
-    0%   { top: 0%;   opacity: 0; }
-    6%   { opacity: 0.55; }
-    94%  { opacity: 0.55; }
-    100% { top: 100%; opacity: 0; }
-}
-.hero-kicker {
+.project-eyebrow {
     font-family: var(--mono);
     font-size: 9px;
-    letter-spacing: 0.24em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--cyan);
-    margin-bottom: 22px;
+    color: var(--teal);
+    margin-bottom: 14px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
-.hero-kicker::before {
+.project-eyebrow::before {
     content: '';
     display: inline-block;
-    width: 18px;
-    height: 1px;
-    background: var(--cyan);
+    width: 20px; height: 1px;
+    background: var(--teal);
     flex-shrink: 0;
 }
-.hero-title {
-    font-family: var(--hero-font);
-    font-size: clamp(68px, 10.5vw, 116px);
-    line-height: 0.9;
-    letter-spacing: 0.03em;
-    color: #fff;
+.project-title {
+    font-family: var(--serif);
+    font-size: clamp(32px, 7vw, 60px);
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
     margin: 0 0 6px;
 }
-.hero-title-accent { color: var(--amber); }
-.hero-ramp {
-    width: 100%;
-    height: 2px;
-    background: var(--ramp);
-    margin: 26px 0;
-    opacity: 0.65;
-}
-.hero-desc {
+.project-title-accent { color: var(--teal); }
+.project-subtitle {
     font-family: var(--sans);
-    font-size: 14px;
-    line-height: 1.75;
-    color: var(--muted);
-    max-width: 530px;
-    margin: 0 0 36px;
+    font-size: clamp(13px, 2vw, 15px);
     font-weight: 300;
+    color: var(--muted);
+    margin: 10px 0 28px;
+    line-height: 1.65;
+    max-width: 560px;
 }
-.hero-meta {
+
+/* ── Author / meta strip ── */
+.meta-strip {
     display: flex;
-    align-items: stretch;
     flex-wrap: wrap;
-    padding: 18px 0;
-    border-top: 1px solid var(--rim);
-    border-bottom: 1px solid var(--rim);
-    margin-bottom: 20px;
+    gap: 0;
+    border: 1px solid var(--rim);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 24px;
 }
-.hero-meta-item {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding: 0 28px;
+.meta-cell {
+    padding: 12px 18px;
+    border-right: 1px solid var(--rim);
+    flex: 1;
+    min-width: 120px;
 }
-.hero-meta-item:first-child { padding-left: 0; }
-.hero-meta-k {
+.meta-cell:last-child { border-right: none; }
+.meta-k {
     font-family: var(--mono);
     font-size: 8px;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--dim);
+    color: var(--muted);
+    margin-bottom: 5px;
 }
-.hero-meta-v {
-    font-family: var(--mono);
+.meta-v {
+    font-family: var(--sans);
     font-size: 13px;
     font-weight: 500;
     color: var(--text);
 }
-.hero-meta-div {
-    width: 1px;
-    background: var(--rim);
-    flex-shrink: 0;
+
+/* ── Abstract ── */
+.abstract {
+    background: var(--deep);
+    border: 1px solid var(--rim);
+    border-radius: 4px;
+    padding: 20px 22px;
+    margin-bottom: 28px;
 }
-.hero-tracklist {
+.abstract-label {
+    font-family: var(--mono);
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+}
+.abstract-text {
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--muted);
+    font-weight: 300;
+}
+.abstract-text b { color: var(--text); font-weight: 500; }
+
+/* ── Tech meta row ── */
+.tech-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+.tech-chip {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    padding: 4px 10px;
+    border: 1px solid var(--rim2);
+    border-radius: 2px;
+    background: var(--deep);
+}
+
+/* ── Tracklist inline ── */
+.tracklist {
     font-family: var(--mono);
     font-size: 9px;
     color: var(--dim);
     letter-spacing: 0.06em;
-    padding-top: 14px;
+    padding-top: 12px;
     line-height: 1.9;
 }
 </style>
@@ -547,32 +616,32 @@ def save_upload_to_tmp(uf):
 
 # ── Matplotlib dark theme ─────────────────────────────────────────────────────
 RC = {
-    "figure.facecolor":  "#0d0c1a",
-    "axes.facecolor":    "#07060f",
-    "axes.edgecolor":    "#2b2645",
-    "axes.labelcolor":   "#7a7090",
-    "axes.titlecolor":   "#a39bb8",
-    "xtick.color":       "#3c3658",
-    "ytick.color":       "#3c3658",
+    "figure.facecolor":  "#141926",
+    "axes.facecolor":    "#0f1117",
+    "axes.edgecolor":    "#263650",
+    "axes.labelcolor":   "#6b7a96",
+    "axes.titlecolor":   "#8a9bb8",
+    "xtick.color":       "#2e3d56",
+    "ytick.color":       "#2e3d56",
     "xtick.labelsize":   8,
     "ytick.labelsize":   8,
     "axes.labelsize":    9,
     "axes.titlesize":    10,
-    "text.color":        "#e4dff0",
-    "grid.color":        "#1e1b2e",
+    "text.color":        "#dde3ee",
+    "grid.color":        "#1f2d44",
     "grid.linestyle":    "--",
     "grid.linewidth":    0.5,
     "font.family":       "monospace",
 }
 
-AMBER   = "#ff8c42"
-CYAN    = "#00d4bb"
-MAGENTA = "#d946ef"
-DIM     = "#3c3658"
-DIM2    = "#7a7090"
-TEXT    = "#e4dff0"
-BG0     = "#07060f"
-BG1     = "#0d0c1a"
+BLUE    = "#4a90d9"
+TEAL    = "#2eb8a6"
+GOLD    = "#c9963a"
+DIM     = "#2e3d56"
+DIM2    = "#6b7a96"
+TEXT    = "#dde3ee"
+BG0     = "#0f1117"
+BG1     = "#141926"
 
 
 def fig_spectrogram(y, sr, win_length, hop_length):
@@ -587,13 +656,13 @@ def fig_spectrogram(y, sr, win_length, hop_length):
 
         im = ax.pcolormesh(
             times, freqs / 1000, S_db,
-            shading="auto", cmap="inferno", vmin=-80, vmax=0, rasterized=True
+            shading="auto", cmap="viridis", vmin=-80, vmax=0, rasterized=True
         )
         if peaks:
             pt = [p["time_s"]  for p in peaks]
             pf = [p["freq_hz"] / 1000 for p in peaks]
             ax.scatter(pt, pf, s=26, facecolors="none",
-                       edgecolors=CYAN, linewidths=1.1, alpha=0.9, zorder=3)
+                       edgecolors=TEAL, linewidths=1.1, alpha=0.9, zorder=3)
 
         ax.set_ylim(0, min(5000, sr / 2) / 1000)
         ax.set_xlabel("time  (s)")
@@ -609,8 +678,8 @@ def fig_spectrogram(y, sr, win_length, hop_length):
         ax.text(0.01, 0.97,
                 f"{len(peaks)} peaks",
                 transform=ax.transAxes, va="top", ha="left",
-                fontsize=8, color=AMBER,
-                bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#2b2645", alpha=0.9))
+                fontsize=8, color=GOLD,
+                bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#263650", alpha=0.9))
 
     return fig, peaks, freqs, times, S_db
 
@@ -633,7 +702,7 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
         peak_count = histogram[best_off]
 
         ax1.bar(offs, counts, width=max(1, (max(offs)-min(offs))/len(offs)*0.9),
-                color=AMBER, alpha=0.45, zorder=2)
+                color=BLUE, alpha=0.45, zorder=2)
         ax1.axvline(best_off, color="#fff", lw=1.1, alpha=0.2, zorder=3)
         ax1.set_yscale("log")
         ax1.set_xlabel("time offset  (frames)")
@@ -642,12 +711,12 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
 
         ax1.bar([best_off], [peak_count],
                 width=max(1, (max(offs)-min(offs))/len(offs)*0.9),
-                color=AMBER, alpha=1.0, zorder=4)
+                color=TEAL, alpha=1.0, zorder=4)
 
         ax1.text(0.98, 0.97, f"peak @ {best_off}",
                  transform=ax1.transAxes, va="top", ha="right",
-                 fontsize=8, color=AMBER,
-                 bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#2b2645", alpha=0.9))
+                 fontsize=8, color=TEAL,
+                 bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#263650", alpha=0.9))
 
         w    = 60
         zoom = [o for o in offs if abs(o - best_off) <= w]
@@ -655,7 +724,7 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
 
         bw = max(1, w // max(len(zoom), 1))
         ax2.bar(zoom, zcnt, width=bw, color=DIM2, alpha=0.45, zorder=2)
-        ax2.bar([best_off], [peak_count], width=bw, color=AMBER, alpha=1.0, zorder=3)
+        ax2.bar([best_off], [peak_count], width=bw, color=TEAL, alpha=1.0, zorder=3)
         ax2.axvline(best_off, color="#fff", lw=1, alpha=0.18)
         ax2.set_xlabel("time offset  (frames)")
         ax2.set_ylabel("votes")
@@ -677,7 +746,8 @@ db_label   = f"{song_count} songs indexed" if db_status != "missing" else "no da
 # ── Top bar ───────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <div class="topbar">
-  <div class="topbar-wordmark">ZAPP<span>·</span>TAIN</div>
+  <div class="topbar-wordmark">AUDIO<span>TAG</span></div>
+  <div class="topbar-course">EE200</div>
   <div class="topbar-rule"></div>
   <div class="topbar-db">
     <span class="db-led" style="background:{led_color}; box-shadow:0 0 6px {led_color}88;"></span>
@@ -690,55 +760,75 @@ st.markdown(f"""
 st.markdown('<div class="page-shell">', unsafe_allow_html=True)
 
 if db_status == "missing":
-    st.error("No song database. Add mp3s to `songs/` → run `python build_database.py`.")
+    st.error("No song database found. Add .mp3/.wav files to `songs/` and run `python build_database.py`.")
     st.stop()
 
-# ── Hero ──────────────────────────────────────────────────────────────────────
+# ── Project header ────────────────────────────────────────────────────────────
 song_names       = list(db.songs.values())
 song_list_inline = "  ·  ".join(song_names)
 
 st.markdown(f"""
-<div class="hero">
-  <div class="hero-scan"></div>
-  <div class="hero-kicker">Audio fingerprinting · Shazam algorithm</div>
-  <div class="hero-title">Zapp<span class="hero-title-accent">·</span>tain<br>America</div>
-  <div class="hero-ramp"></div>
-  <p class="hero-desc">
-    Upload a short clip — even a few seconds over noise — and the system
-    identifies it by matching sparse time–frequency landmarks against a
-    pre-indexed database. No waveform comparison, no ML: just combinatorial
-    hashing and offset voting.
+<div class="project-header">
+  <div class="project-eyebrow">EE200 — Course Project · Audio Signal Processing</div>
+  <div class="project-title">Audio<span class="project-title-accent">Tag</span></div>
+  <p class="project-subtitle">
+    A content-based audio identification system implementing the Shazam landmark hashing algorithm.
+    Identifies recordings against an indexed database using sparse time–frequency peaks
+    and combinatorial hash voting — no machine learning, no waveform comparison.
   </p>
-  <div class="hero-meta">
-    <div class="hero-meta-item">
-      <span class="hero-meta-k">indexed songs</span>
-      <span class="hero-meta-v">{song_count}</span>
+
+  <div class="meta-strip">
+    <div class="meta-cell">
+      <div class="meta-k">Authors</div>
+      <div class="meta-v">Darsh Kedia &amp; Tulip Khatri</div>
     </div>
-    <div class="hero-meta-div"></div>
-    <div class="hero-meta-item">
-      <span class="hero-meta-k">window</span>
-      <span class="hero-meta-v">{WIN_LENGTH} samp</span>
+    <div class="meta-cell">
+      <div class="meta-k">Course</div>
+      <div class="meta-v">EE200</div>
     </div>
-    <div class="hero-meta-div"></div>
-    <div class="hero-meta-item">
-      <span class="hero-meta-k">sample rate</span>
-      <span class="hero-meta-v">{SR} Hz</span>
+    <div class="meta-cell">
+      <div class="meta-k">Method</div>
+      <div class="meta-v">Paired-peak hashing</div>
     </div>
-    <div class="hero-meta-div"></div>
-    <div class="hero-meta-item">
-      <span class="hero-meta-k">hash method</span>
-      <span class="hero-meta-v">paired peaks</span>
+    <div class="meta-cell">
+      <div class="meta-k">Database</div>
+      <div class="meta-v">{song_count} songs indexed</div>
     </div>
   </div>
-  <div class="hero-tracklist">{song_list_inline}</div>
+
+  <div class="abstract">
+    <div class="abstract-label">Abstract</div>
+    <div class="abstract-text">
+      This project implements the audio fingerprinting technique described by Wang (2003) — the algorithm
+      underlying Shazam. Audio is converted to a time–frequency spectrogram via short-time Fourier
+      transform with a <b>Hann window ({WIN_LENGTH} samples, {HOP_LENGTH}-sample hop)</b> at
+      <b>{SR} Hz</b>. Sparse constellation peaks are extracted from local spectral maxima and
+      paired within a target zone to produce compact <b>(f₁, f₂, Δt)</b> hashes. A query clip is
+      matched by looking up its hashes against a pre-indexed database and finding the candidate song
+      whose hash matches cluster at a single time offset — evidence of a true alignment rather than
+      coincidental collision.
+    </div>
+  </div>
+
+  <div class="tech-row">
+    <span class="tech-chip">FFT / STFT</span>
+    <span class="tech-chip">Constellation map</span>
+    <span class="tech-chip">Hash table lookup</span>
+    <span class="tech-chip">Offset voting</span>
+    <span class="tech-chip">WIN = {WIN_LENGTH}</span>
+    <span class="tech-chip">HOP = {HOP_LENGTH}</span>
+    <span class="tech-chip">SR = {SR} Hz</span>
+  </div>
+
+  <div class="tracklist">{song_list_inline}</div>
 </div>
 """, unsafe_allow_html=True)
 
 if db_status == "built_live":
-    st.info("Database re-indexed live at startup — a fresh fingerprint_db.pkl has been saved.")
+    st.info("Database re-indexed live at startup — fingerprint_db.pkl has been saved.")
 
 # ── Mode tabs ─────────────────────────────────────────────────────────────────
-c1, c2, _ = st.columns([1, 1, 8])
+c1, c2, _ = st.columns([1, 1, 6])
 with c1:
     if st.button("Single clip", key="t1"):
         st.session_state.mode = "single"
@@ -755,7 +845,7 @@ if mode == "single":
 
     st.markdown("""
     <div class="sec-head">
-      <span class="sec-label">signal</span>
+      <span class="sec-label">input</span>
       <span class="sec-title">Upload query clip</span>
       <span class="sec-line"></span>
     </div>
@@ -791,7 +881,7 @@ if mode == "single":
 
             if best is None:
                 st.markdown(
-                    '<div class="no-match-block">✕ no match — clip does not correspond to any indexed song</div>',
+                    '<div class="no-match-block">✕ No match — clip does not correspond to any indexed song.</div>',
                     unsafe_allow_html=True
                 )
             else:
@@ -803,21 +893,21 @@ if mode == "single":
                 <div class="match-block">
                   <div class="match-ramp-strip"></div>
                   <div class="match-inner">
-                    <div class="match-tag">identified song</div>
+                    <div class="match-tag">Identified song</div>
                     <div class="match-name">{best}</div>
                   </div>
                 </div>
                 <div class="stat-row">
                   <div class="stat-pill">
-                    <div class="stat-k">best offset votes</div>
+                    <div class="stat-k">Best offset votes</div>
                     <div class="stat-v">{top_votes}</div>
                   </div>
                   <div class="stat-pill">
-                    <div class="stat-k">runner-up votes</div>
+                    <div class="stat-k">Runner-up votes</div>
                     <div class="stat-v">{runner_up}</div>
                   </div>
                   <div class="stat-pill">
-                    <div class="stat-k">confidence ratio</div>
+                    <div class="stat-k">Confidence ratio</div>
                     <div class="stat-v">{ratio}</div>
                   </div>
                 </div>
@@ -841,7 +931,7 @@ if mode == "single":
             # Step A: spectrogram + constellation
             st.markdown("""
             <div class="callout">
-              <div class="callout-head">A — Spectrogram &amp; constellation map</div>
+              <div class="callout-head">Step A — Spectrogram &amp; constellation map</div>
               <div class="callout-body">
                 The audio is divided into short overlapping windows (<b>win={win}</b> samples,
                 hop=<b>{hop}</b> at {sr} Hz). Each window is multiplied by a <b>Hann taper</b>
@@ -864,19 +954,19 @@ if mode == "single":
             st.markdown(f"""
             <div class="stat-row" style="margin-top:10px">
               <div class="stat-pill">
-                <div class="stat-k">constellation peaks</div>
+                <div class="stat-k">Constellation peaks</div>
                 <div class="stat-v">{len(peaks)}</div>
               </div>
               <div class="stat-pill">
-                <div class="stat-k">freq resolution</div>
+                <div class="stat-k">Freq resolution</div>
                 <div class="stat-v">{freq_res:.1f} Hz/bin</div>
               </div>
               <div class="stat-pill">
-                <div class="stat-k">time resolution</div>
+                <div class="stat-k">Time resolution</div>
                 <div class="stat-v">{time_res:.1f} ms/frame</div>
               </div>
               <div class="stat-pill">
-                <div class="stat-k">clip duration</div>
+                <div class="stat-k">Clip duration</div>
                 <div class="stat-v">{len(y)/SR:.2f} s</div>
               </div>
             </div>
@@ -887,7 +977,7 @@ if mode == "single":
             # Step B: offset histogram
             st.markdown("""
             <div class="callout">
-              <div class="callout-head">B — Combinatorial hashing &amp; offset histogram</div>
+              <div class="callout-head">Step B — Combinatorial hashing &amp; offset histogram</div>
               <div class="callout-body">
                 Each constellation peak is <b>paired</b> with up to 10 later peaks within a
                 target zone of [1, 100] frames. Each pair produces a hash
@@ -914,7 +1004,7 @@ if mode == "single":
 else:
     st.markdown("""
     <div class="sec-head">
-      <span class="sec-label">signal</span>
+      <span class="sec-label">input</span>
       <span class="sec-title">Upload query clips</span>
       <span class="sec-line"></span>
     </div>
@@ -924,7 +1014,7 @@ else:
         Upload any number of clips. Each is fingerprinted and matched independently.
         The output <b>results.csv</b> contains two columns:
         <b>filename</b> (original upload name) and <b>prediction</b>
-        (matched song filename without extension, blank if no match).
+        (matched song name, blank if no match).
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -973,5 +1063,16 @@ st.markdown("<hr>", unsafe_allow_html=True)
 with st.expander(f"indexed songs  ({song_count})"):
     for name in db.songs.values():
         st.markdown(f'<div class="song-row">{name}</div>', unsafe_allow_html=True)
+
+# ── Footer attribution ─────────────────────────────────────────────────────────
+st.markdown(f"""
+<div style="padding: 24px 0 8px; font-family: var(--mono); font-size: 9px;
+            letter-spacing: 0.14em; color: var(--dim); text-align: center;
+            border-top: 1px solid var(--rim); margin-top: 12px;">
+  AUDIOTAG &nbsp;·&nbsp; EE200 Course Project &nbsp;·&nbsp;
+  Darsh Kedia &amp; Tulip Khatri &nbsp;·&nbsp;
+  Wang (2003) landmark hashing
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)  # .page-shell
