@@ -1,7 +1,6 @@
 import os
 import pickle
 import tempfile
-
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -9,13 +8,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.patches import FancyArrowPatch
 import matplotlib.ticker as ticker
-
 from audio_io import load_audio, spectrogram_db
 from fingerprint import FingerprintDB, find_constellation_peaks
 
-# ── Constants ─────────────────────────────────────────────────────────────────
 WIN_LENGTH = 4096
 HOP_LENGTH = 2048
 SR         = 22050
@@ -29,12 +25,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Serif:wght@400;500;600&display=swap');
 
-/* ── Force dark background everywhere ── */
 html, body,
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"],
@@ -52,9 +46,11 @@ header[data-testid="stHeader"] {
 [data-testid="collapsedControl"],
 section[data-testid="stSidebar"] { display: none !important; }
 #MainMenu, footer { visibility: hidden; }
-*, *::before, *::after { box-sizing: border-box; }
 
-/* ── Design tokens ── */
+.page-shell, .topbar, .match-block, .stat-pill, .callout {
+    box-sizing: border-box;
+}
+
 :root {
     --void:      #0f1117;
     --deep:      #141926;
@@ -79,7 +75,6 @@ section[data-testid="stSidebar"] { display: none !important; }
     --rule-v:    linear-gradient(180deg, #4a90d9, #2eb8a6);
 }
 
-/* ── Layout ── */
 .main .block-container {
     padding-top: 0 !important;
     padding-left: 0 !important;
@@ -87,7 +82,6 @@ section[data-testid="stSidebar"] { display: none !important; }
     max-width: 100% !important;
 }
 
-/* ── Fixed top bar ── */
 .topbar {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -98,9 +92,9 @@ section[data-testid="stSidebar"] { display: none !important; }
     border-bottom: 1px solid #1f2535;
     display: flex;
     align-items: center;
-    padding: 0 24px;
+    padding: 0 16px;
     z-index: 99999;
-    gap: 16px;
+    gap: 12px;
 }
 .topbar::after {
     content: '';
@@ -113,19 +107,19 @@ section[data-testid="stSidebar"] { display: none !important; }
 }
 .topbar-wordmark {
     font-family: var(--mono);
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     color: var(--text);
     white-space: nowrap;
 }
 .topbar-wordmark span { color: var(--teal); }
 .topbar-course {
     font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
+    font-size: 9px;
+    letter-spacing: 0.05em;
     color: var(--muted);
-    padding: 3px 8px;
+    padding: 2px 6px;
     border: 1px solid var(--rim2);
     border-radius: 2px;
     white-space: nowrap;
@@ -138,12 +132,12 @@ section[data-testid="stSidebar"] { display: none !important; }
 }
 .topbar-db {
     font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.07em;
+    font-size: 9px;
+    letter-spacing: 0.05em;
     color: var(--muted);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     white-space: nowrap;
     flex-shrink: 0;
 }
@@ -153,18 +147,20 @@ section[data-testid="stSidebar"] { display: none !important; }
     flex-shrink: 0;
 }
 
-/* ── Page shell ── */
 .page-shell {
-    padding: 68px 24px 64px;
+    padding: 68px 16px 64px;
     max-width: 960px;
     margin: 0 auto;
 }
+
 @media (min-width: 640px) {
-    .page-shell { padding: 76px 44px 64px; }
-    .topbar { padding: 0 36px; }
+    .page-shell { padding: 76px 32px 64px; }
+    .topbar { padding: 0 24px; gap: 16px; }
+    .topbar-wordmark { font-size: 14px; letter-spacing: 0.12em; }
+    .topbar-course { font-size: 10px; padding: 3px 8px; }
+    .topbar-db { font-size: 10px; gap: 8px; }
 }
 
-/* ── Buttons ── */
 .stButton > button {
     font-family: var(--mono) !important;
     font-size: 10px !important;
@@ -177,6 +173,7 @@ section[data-testid="stSidebar"] { display: none !important; }
     border-radius: 2px !important;
     padding: 9px 22px !important;
     transition: all 0.15s ease !important;
+    width: auto !important;
 }
 .stButton > button:hover {
     background: var(--blue-lo) !important;
@@ -184,7 +181,6 @@ section[data-testid="stSidebar"] { display: none !important; }
     border-color: var(--blue) !important;
 }
 
-/* ── Upload zone: force dark bg and visible text in light mode ── */
 [data-testid="stFileUploaderDropzone"],
 [data-testid="stFileUploaderDropzone"] * {
     background: var(--deep) !important;
@@ -207,7 +203,6 @@ section[data-testid="stSidebar"] { display: none !important; }
     color: var(--muted) !important;
     background: transparent !important;
 }
-/* Browse files button inside uploader */
 [data-testid="stFileUploaderDropzone"] button,
 [data-testid="stFileUploaderDropzone"] button span {
     background: var(--surface) !important;
@@ -215,7 +210,6 @@ section[data-testid="stSidebar"] { display: none !important; }
     border-color: var(--rim2) !important;
 }
 
-/* ── Section heads ── */
 .sec-head {
     display: flex;
     align-items: center;
@@ -249,7 +243,6 @@ section[data-testid="stSidebar"] { display: none !important; }
     min-width: 40px;
 }
 
-/* ── Match result ── */
 .match-block {
     display: flex;
     background: var(--deep);
@@ -265,7 +258,7 @@ section[data-testid="stSidebar"] { display: none !important; }
     background: var(--rule-v);
 }
 .match-inner {
-    padding: 20px 24px;
+    padding: 16px 20px;
     flex: 1;
     min-width: 0;
 }
@@ -279,10 +272,10 @@ section[data-testid="stSidebar"] { display: none !important; }
 }
 .match-name {
     font-family: var(--serif);
-    font-size: clamp(24px, 5vw, 38px);
+    font-size: clamp(20px, 4.5vw, 32px);
     letter-spacing: 0.01em;
     color: var(--text);
-    line-height: 1.15;
+    line-height: 1.2;
     word-break: break-word;
 }
 .no-match-block {
@@ -297,12 +290,12 @@ section[data-testid="stSidebar"] { display: none !important; }
     border-radius: 4px;
 }
 
-/* ── Stat pills ── */
 .stat-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
     margin-bottom: 20px;
+    width: 100%;
 }
 .stat-pill {
     background: var(--deep);
@@ -311,6 +304,7 @@ section[data-testid="stSidebar"] { display: none !important; }
     padding: 14px 16px;
     position: relative;
     overflow: hidden;
+    width: 100%;
 }
 .stat-pill::before {
     content: '';
@@ -330,12 +324,11 @@ section[data-testid="stSidebar"] { display: none !important; }
 }
 .stat-v {
     font-family: var(--mono);
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
     color: var(--blue);
 }
 
-/* ── Callout boxes ── */
 .callout {
     background: var(--deep);
     border: 1px solid var(--rim);
@@ -360,7 +353,6 @@ section[data-testid="stSidebar"] { display: none !important; }
 }
 .callout-body b { color: var(--text); font-weight: 500; }
 
-/* ── Expander ── */
 [data-testid="stExpander"] {
     background: var(--deep) !important;
     border: 1px solid var(--rim) !important;
@@ -374,10 +366,10 @@ details summary {
     color: var(--muted) !important;
 }
 
-/* ── Tables ── */
 [data-testid="stDataFrame"] {
     border: 1px solid var(--rim) !important;
     border-radius: 4px !important;
+    width: 100% !important;
 }
 thead tr th {
     background: var(--surface) !important;
@@ -393,13 +385,10 @@ tbody tr td {
     color: var(--text) !important;
 }
 
-/* ── Progress ── */
 [data-testid="stProgressBar"] > div > div { background: var(--teal) !important; }
 
-/* ── Audio player ── */
-.stAudio audio { filter: invert(0.85) sepia(0.1); border-radius: 3px; }
+.stAudio audio { filter: invert(0.85) sepia(0.1); border-radius: 3px; width: 100%; }
 
-/* ── Alerts / spinner ── */
 [data-testid="stAlert"] {
     background: var(--deep) !important;
     border-radius: 4px !important;
@@ -413,34 +402,15 @@ tbody tr td {
     color: var(--muted) !important;
 }
 
-/* ── Divider ── */
 hr {
     border: none !important;
     border-top: 1px solid var(--rim) !important;
-    margin: 32px 0 !important;
+    margin: 24px 0 !important;
 }
 
-/* ── Song list ── */
-.song-row {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--muted);
-    padding: 6px 0;
-    border-bottom: 1px solid var(--rim);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.song-row::before {
-    content: '▸';
-    color: var(--teal);
-    font-size: 8px;
-}
-
-/* ── Header block ── */
 .project-header {
-    padding: 44px 0 36px;
-    margin-bottom: 36px;
+    padding: 24px 0;
+    margin-bottom: 24px;
     border-bottom: 1px solid var(--rim);
     position: relative;
 }
@@ -454,80 +424,92 @@ hr {
 .project-eyebrow {
     font-family: var(--mono);
     font-size: 9px;
-    letter-spacing: 0.22em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--teal);
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 .project-eyebrow::before {
     content: '';
     display: inline-block;
-    width: 20px; height: 1px;
+    width: 16px; height: 1px;
     background: var(--teal);
     flex-shrink: 0;
 }
 .project-title {
     font-family: var(--serif);
-    font-size: clamp(32px, 7vw, 60px);
+    font-size: clamp(28px, 6vw, 48px);
     font-weight: 600;
     color: var(--text);
-    line-height: 1.05;
+    line-height: 1.1;
     letter-spacing: -0.01em;
     margin: 0 0 6px;
 }
 .project-title-accent { color: var(--teal); }
 .project-subtitle {
     font-family: var(--sans);
-    font-size: clamp(13px, 2vw, 15px);
+    font-size: clamp(12px, 2vw, 14px);
     font-weight: 300;
     color: var(--muted);
-    margin: 10px 0 28px;
-    line-height: 1.65;
+    margin: 10px 0 20px;
+    line-height: 1.6;
     max-width: 560px;
 }
 
-/* ── Author / meta strip ── */
 .meta-strip {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 0;
     border: 1px solid var(--rim);
     border-radius: 4px;
     overflow: hidden;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
+    width: 100%;
+}
+@media (min-width: 520px) {
+    .meta-strip { grid-template-columns: repeat(4, 1fr); }
 }
 .meta-cell {
-    padding: 12px 18px;
+    padding: 10px 14px;
     border-right: 1px solid var(--rim);
-    flex: 1;
-    min-width: 120px;
+    border-bottom: 1px solid var(--rim);
+    min-width: 0;
 }
-.meta-cell:last-child { border-right: none; }
+@media (min-width: 520px) {
+    .meta-cell { border-bottom: none; }
+    .meta-cell:last-child { border-right: none; }
+}
+.meta-cell:nth-child(2) { @media (max-width: 519px) { border-right: none; } }
+.meta-cell:nth-child(3), .meta-cell:nth-child(4) { border-bottom: none; }
+.meta-cell:nth-child(3) { @media (max-width: 519px) { border-right: 1px solid var(--rim); } }
+
 .meta-k {
     font-family: var(--mono);
     font-size: 8px;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--muted);
-    margin-bottom: 5px;
+    margin-bottom: 4px;
 }
 .meta-v {
     font-family: var(--sans);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* ── Abstract ── */
 .abstract {
     background: var(--deep);
     border: 1px solid var(--rim);
     border-radius: 4px;
-    padding: 20px 22px;
-    margin-bottom: 28px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
 }
 .abstract-label {
     font-family: var(--mono);
@@ -535,48 +517,67 @@ hr {
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--gold);
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 .abstract-text {
     font-family: var(--sans);
-    font-size: 13px;
-    line-height: 1.8;
+    font-size: 12px;
+    line-height: 1.7;
     color: var(--muted);
     font-weight: 300;
 }
 .abstract-text b { color: var(--text); font-weight: 500; }
 
-/* ── Tech meta row ── */
 .tech-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 20px;
+    gap: 6px;
+    margin-bottom: 16px;
 }
 .tech-chip {
     font-family: var(--mono);
     font-size: 9px;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     color: var(--muted);
-    padding: 4px 10px;
+    padding: 3px 8px;
     border: 1px solid var(--rim2);
     border-radius: 2px;
     background: var(--deep);
 }
 
-/* ── Tracklist inline ── */
 .tracklist {
     font-family: var(--mono);
     font-size: 9px;
     color: var(--dim);
-    letter-spacing: 0.06em;
-    padding-top: 12px;
-    line-height: 1.9;
+    letter-spacing: 0.05em;
+    padding-top: 8px;
+    line-height: 1.7;
+    word-break: break-all;
+}
+
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    gap: 8px !important;
+    background-color: transparent !important;
+}
+[data-testid="stTabs"] [data-baseweb="tab"] {
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color: var(--muted) !important;
+    border: 1px solid var(--rim) !important;
+    background-color: transparent !important;
+    padding: 8px 16px !important;
+    border-radius: 4px 4px 0 0 !important;
+}
+[data-testid="stTabs"] [aria-selected="true"] {
+    color: var(--teal) !important;
+    border-color: var(--teal) var(--teal) transparent var(--teal) !important;
+    background-color: var(--deep) !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ── DB loading ────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def load_db():
     if os.path.exists(DB_PATH):
@@ -601,15 +602,12 @@ def load_db():
         return db, "built_live"
     return None, "missing"
 
-
 def save_upload_to_tmp(uf):
     suffix = os.path.splitext(uf.name)[1] or ".mp3"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(uf.getbuffer())
         return tmp.name
 
-
-# ── Matplotlib dark theme ─────────────────────────────────────────────────────
 RC = {
     "figure.facecolor":  "#141926",
     "axes.facecolor":    "#0f1117",
@@ -618,10 +616,10 @@ RC = {
     "axes.titlecolor":   "#8a9bb8",
     "xtick.color":       "#2e3d56",
     "ytick.color":       "#2e3d56",
-    "xtick.labelsize":   8,
-    "ytick.labelsize":   8,
-    "axes.labelsize":    9,
-    "axes.titlesize":    10,
+    "xtick.labelsize":   7,
+    "ytick.labelsize":   7,
+    "axes.labelsize":    8,
+    "axes.titlesize":    9,
     "text.color":        "#dde3ee",
     "grid.color":        "#1f2d44",
     "grid.linestyle":    "--",
@@ -629,23 +627,22 @@ RC = {
     "font.family":       "monospace",
 }
 
-BLUE    = "#4a90d9"
-TEAL    = "#2eb8a6"
-GOLD    = "#c9963a"
-DIM     = "#2e3d56"
-DIM2    = "#6b7a96"
-TEXT    = "#dde3ee"
-BG0     = "#0f1117"
-BG1     = "#141926"
-
+BLUE  = "#4a90d9"
+TEAL  = "#2eb8a6"
+GOLD  = "#c9963a"
+DIM   = "#2e3d56"
+DIM2  = "#6b7a96"
+TEXT  = "#dde3ee"
+BG0   = "#0f1117"
+BG1   = "#141926"
 
 def fig_spectrogram(y, sr, win_length, hop_length):
     freqs, times, S_db = spectrogram_db(y, sr, win_length, hop_length)
     peaks = find_constellation_peaks(S_db, freqs, times)
 
     with plt.rc_context(RC):
-        fig = plt.figure(figsize=(9, 4.2), constrained_layout=True)
-        gs  = gridspec.GridSpec(1, 2, figure=fig, width_ratios=[20, 1], wspace=0.04)
+        fig = plt.Figure(figsize=(9, 4.2), constrained_layout=True)
+        gs  = gridspec.GridSpec(1, 2, figure=fig, width_ratios=[24, 1], wspace=0.02)
         ax  = fig.add_subplot(gs[0])
         cax = fig.add_subplot(gs[1])
 
@@ -656,40 +653,40 @@ def fig_spectrogram(y, sr, win_length, hop_length):
         if peaks:
             pt = [p["time_s"]  for p in peaks]
             pf = [p["freq_hz"] / 1000 for p in peaks]
-            ax.scatter(pt, pf, s=26, facecolors="none",
-                       edgecolors=GOLD, linewidths=1.1, alpha=0.9, zorder=3)
+            ax.scatter(pt, pf, s=18, facecolors="none",
+                       edgecolors=GOLD, linewidths=0.9, alpha=0.8, zorder=3)
 
         ax.set_ylim(0, min(5000, sr / 2) / 1000)
         ax.set_xlabel("time  (s)")
         ax.set_ylabel("frequency  (kHz)")
         ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.1f"))
-        ax.grid(True, alpha=0.35)
+        ax.grid(True, alpha=0.25)
 
         cb = fig.colorbar(im, cax=cax)
-        cb.set_label("dB", color=DIM2, fontsize=8)
-        cb.ax.yaxis.set_tick_params(color=DIM2, labelsize=7)
-        plt.setp(cb.ax.yaxis.get_ticklabels(), color=DIM2)
+        cb.set_label("dB", color=DIM2, fontsize=7)
+        cb.ax.yaxis.set_tick_params(color=DIM2, labelsize=6)
 
-        ax.text(0.01, 0.97,
-                f"{len(peaks)} peaks",
+        ax.text(0.01, 0.97, f"{len(peaks)} peaks",
                 transform=ax.transAxes, va="top", ha="left",
-                fontsize=8, color=GOLD,
-                bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#263650", alpha=0.9))
+                fontsize=7, color=GOLD,
+                bbox=dict(boxstyle="round,pad=0.2", fc=BG1, ec="#263650", alpha=0.9))
 
     return fig, peaks, freqs, times, S_db
 
-
 def fig_histogram(histogram, best_name, best_votes, runner_votes):
     with plt.rc_context(RC):
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.8),
-                                        gridspec_kw={"width_ratios": [3, 2]})
-        fig.subplots_adjust(wspace=0.35)
-
+        fig = plt.Figure(figsize=(9, 4.0))
+        
         if not histogram:
-            for ax in (ax1, ax2):
-                ax.text(0.5, 0.5, "no matching hashes",
-                        ha="center", va="center", color=DIM2)
+            ax = fig.add_subplot(111)
+            ax.text(0.5, 0.5, "no matching hashes", ha="center", va="center", color=DIM2)
+            ax.set_xticks([])
+            ax.set_yticks([])
             return fig
+
+        gs = gridspec.GridSpec(2, 1, figure=fig, height_ratios=[1, 1], hspace=0.4)
+        ax1 = fig.add_subplot(gs[0])
+        ax2 = fig.add_subplot(gs[1])
 
         offs   = sorted(histogram.keys())
         counts = [histogram[o] for o in offs]
@@ -698,20 +695,20 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
 
         ax1.bar(offs, counts, width=max(1, (max(offs)-min(offs))/len(offs)*0.9),
                 color=BLUE, alpha=0.45, zorder=2)
-        ax1.axvline(best_off, color="#fff", lw=1.1, alpha=0.2, zorder=3)
+        ax1.axvline(best_off, color="#fff", lw=1.0, alpha=0.2, zorder=3)
         ax1.set_yscale("log")
         ax1.set_xlabel("time offset  (frames)")
         ax1.set_ylabel("votes  (log)")
-        ax1.grid(True, axis="y", alpha=0.3)
+        ax1.grid(True, axis="y", alpha=0.2)
 
         ax1.bar([best_off], [peak_count],
                 width=max(1, (max(offs)-min(offs))/len(offs)*0.9),
                 color=TEAL, alpha=1.0, zorder=4)
 
-        ax1.text(0.98, 0.97, f"peak @ {best_off}",
+        ax1.text(0.98, 0.95, f"peak @ {best_off}",
                  transform=ax1.transAxes, va="top", ha="right",
-                 fontsize=8, color=TEAL,
-                 bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#263650", alpha=0.9))
+                 fontsize=7, color=TEAL,
+                 bbox=dict(boxstyle="round,pad=0.2", fc=BG1, ec="#263650", alpha=0.9))
 
         w    = 60
         zoom = [o for o in offs if abs(o - best_off) <= w]
@@ -720,25 +717,19 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
         bw = max(1, w // max(len(zoom), 1))
         ax2.bar(zoom, zcnt, width=bw, color=DIM2, alpha=0.45, zorder=2)
         ax2.bar([best_off], [peak_count], width=bw, color=TEAL, alpha=1.0, zorder=3)
-        ax2.axvline(best_off, color="#fff", lw=1, alpha=0.18)
+        ax2.axvline(best_off, color="#fff", lw=0.8, alpha=0.18)
         ax2.set_xlabel("time offset  (frames)")
         ax2.set_ylabel("votes")
-        ax2.grid(True, axis="y", alpha=0.3)
-        ax2.set_title(f"zoom ±{w} frames · {peak_count} votes", color=DIM2, fontsize=9, pad=6)
+        ax2.grid(True, axis="y", alpha=0.2)
+        ax2.set_title(f"zoom ±{w} frames · {peak_count} votes", color=DIM2, fontsize=8, pad=4)
 
     return fig
-
-
-# ── State ─────────────────────────────────────────────────────────────────────
-if "mode" not in st.session_state:
-    st.session_state.mode = "single"
 
 db, db_status = load_db()
 song_count = len(db.songs) if db else 0
 led_color  = "#4ade80" if db_status != "missing" else "#f87171"
-db_label   = f"{song_count} songs indexed" if db_status != "missing" else "no database"
+db_label   = f"{song_count} songs" if db_status != "missing" else "no database"
 
-# ── Top bar ───────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <div class="topbar">
   <div class="topbar-wordmark">HASH<span>FLASH</span></div>
@@ -751,25 +742,23 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Page shell ────────────────────────────────────────────────────────────────
 st.markdown('<div class="page-shell">', unsafe_allow_html=True)
 
 if db_status == "missing":
     st.error("No song database found. Add .mp3/.wav files to `songs/` and run `python build_database.py`.")
     st.stop()
 
-# ── Project header ────────────────────────────────────────────────────────────
 song_names       = list(db.songs.values())
 song_list_inline = "  ·  ".join(song_names)
 
 st.markdown(f"""
 <div class="project-header">
-  <div class="project-eyebrow">EE200 Course Project · Audio Signal Processing</div>
+  <div class="project-eyebrow">EE200 Project · Signal Processing</div>
   <div class="project-title">Hash<span class="project-title-accent">Flash</span></div>
   <p class="project-subtitle">
     A content-based audio identification system implementing the Shazam landmark hashing algorithm.
     Identifies recordings against an indexed database using sparse time–frequency peaks
-    and combinatorial hash voting, no machine learning and no waveform comparison.
+    and combinatorial hash voting.
   </p>
 
   <div class="meta-strip">
@@ -783,25 +772,18 @@ st.markdown(f"""
     </div>
     <div class="meta-cell">
       <div class="meta-k">Method</div>
-      <div class="meta-v">Paired-peak hashing</div>
+      <div class="meta-v">Paired-peak</div>
     </div>
     <div class="meta-cell">
       <div class="meta-k">Database</div>
-      <div class="meta-v">{song_count} songs indexed</div>
+      <div class="meta-v">{song_count} indexed</div>
     </div>
   </div>
 
   <div class="abstract">
     <div class="abstract-label">Abstract</div>
     <div class="abstract-text">
-      This project implements the audio fingerprinting technique described by Wang (2003), the algorithm
-      underlying Shazam. Audio is converted to a time-frequency spectrogram via short-time Fourier
-      transform with a <b>Hann window ({WIN_LENGTH} samples, {HOP_LENGTH}-sample hop)</b> at
-      <b>{SR} Hz</b>. Sparse constellation peaks are extracted from local spectral maxima and
-      paired within a target zone to produce compact <b>(f₁, f₂, Δt)</b> hashes. A query clip is
-      matched by looking up its hashes against a pre-indexed database and finding the candidate song
-      whose hash matches cluster at a single time offset, evidence of a true alignment rather than
-      coincidental collision.
+      Audio is converted to a spectrogram via STFT with a <b>Hann window ({WIN_LENGTH} samples, {HOP_LENGTH}-sample hop)</b> at <b>{SR} Hz</b>. Sparse constellation peaks are extracted from local spectral maxima and paired within a target zone to produce compact <b>(f₁, f₂, Δt)</b> hashes. A query clip is matched by looking up its hashes against a database and finding the candidate song whose matches cluster at a single consistent time offset.
     </div>
   </div>
 
@@ -810,9 +792,9 @@ st.markdown(f"""
     <span class="tech-chip">Constellation map</span>
     <span class="tech-chip">Hash table lookup</span>
     <span class="tech-chip">Offset voting</span>
-    <span class="tech-chip">WIN = {WIN_LENGTH}</span>
-    <span class="tech-chip">HOP = {HOP_LENGTH}</span>
-    <span class="tech-chip">SR = {SR} Hz</span>
+    <span class="tech-chip">WIN={WIN_LENGTH}</span>
+    <span class="tech-chip">HOP={HOP_LENGTH}</span>
+    <span class="tech-chip">SR={SR}Hz</span>
   </div>
 
   <div class="tracklist">{song_list_inline}</div>
@@ -822,24 +804,11 @@ st.markdown(f"""
 if db_status == "built_live":
     st.info("Database re-indexed live at startup, fingerprint_db.pkl has been saved.")
 
-# ── Mode tabs ─────────────────────────────────────────────────────────────────
-c1, c2, _ = st.columns([1, 1, 6])
-with c1:
-    if st.button("Single clip", key="t1"):
-        st.session_state.mode = "single"
-with c2:
-    if st.button("Batch", key="t2"):
-        st.session_state.mode = "batch"
+tab_single, tab_batch = st.tabs(["Single Clip", "Batch Mode"])
 
-mode = st.session_state.mode
-st.markdown("<hr>", unsafe_allow_html=True)
-
-
-# ══ SINGLE-CLIP MODE ══════════════════════════════════════════════════════════
-if mode == "single":
-
+with tab_single:
     st.markdown("""
-    <div class="sec-head">
+    <div class="sec-head" style="margin-top:12px">
       <span class="sec-label">input</span>
       <span class="sec-title">Upload query clip</span>
       <span class="sec-line"></span>
@@ -852,10 +821,10 @@ if mode == "single":
     )
 
     if uploaded:
-        tmp = save_upload_to_tmp(uploaded)
+        tmp_path = save_upload_to_tmp(uploaded)
         try:
             with st.spinner("decoding audio…"):
-                y, sr = load_audio(tmp, sr=SR)
+                y, sr = load_audio(tmp_path, sr=SR)
             st.audio(uploaded)
 
             with st.spinner("fingerprinting and matching…"):
@@ -865,7 +834,6 @@ if mode == "single":
             histogram = result["histogram"]
             ranked    = result["ranked"]
 
-            # ── Result ──────────────────────────────────────────────────────
             st.markdown("""
             <div class="sec-head" style="margin-top:28px">
               <span class="sec-label">result</span>
@@ -909,12 +877,12 @@ if mode == "single":
                 """, unsafe_allow_html=True)
 
                 with st.expander("all candidates"):
-                    st.table(pd.DataFrame(
-                        [(n, v) for _, n, v in ranked],
-                        columns=["song", "votes"],
-                    ))
+                    st.dataframe(
+                        pd.DataFrame([(n, v) for _, n, v in ranked], columns=["song", "votes"]),
+                        use_container_width=True,
+                        hide_index=True
+                    )
 
-            # ── Intermediate steps ───────────────────────────────────────────
             st.markdown("""
             <div class="sec-head" style="margin-top:28px">
               <span class="sec-label">analysis</span>
@@ -923,25 +891,17 @@ if mode == "single":
             </div>
             """, unsafe_allow_html=True)
 
-            # Step A: spectrogram + constellation
             st.markdown("""
             <div class="callout">
               <div class="callout-head">Step A: Spectrogram &amp; constellation map</div>
               <div class="callout-body">
-                The audio is divided into short overlapping windows (<b>win={win}</b> samples,
-                hop=<b>{hop}</b> at {sr} Hz). Each window is multiplied by a <b>Hann taper</b>
-                to suppress spectral leakage, then passed through an FFT. Stacking these
-                column-by-column gives the time–frequency power map below. <b>Gold circles</b>
-                mark the <em>constellation peaks</em>, local maxima exceeding the neighbourhood
-                and a −40 dB floor, thinned to at most 5 per time-frame. These sparse landmarks
-                are what gets fingerprinted.
+                The audio is divided into overlapping windows (<b>win={win}</b> samples, hop=<b>{hop}</b> at {sr} Hz) with a <b>Hann taper</b> and passed through an FFT. <b>Gold circles</b> mark <em>constellation peaks</em> local maxima exceeding a −40 dB floor, thinned to 5 per frame.
               </div>
             </div>
             """.format(win=WIN_LENGTH, hop=HOP_LENGTH, sr=SR), unsafe_allow_html=True)
 
             fig_s, peaks, freqs, times, S_db = fig_spectrogram(y, sr, WIN_LENGTH, HOP_LENGTH)
-            st.pyplot(fig_s)
-            plt.close(fig_s)
+            st.pyplot(fig_s, clear_figure=True)
 
             freq_res = SR / WIN_LENGTH
             time_res = HOP_LENGTH / SR * 1000
@@ -969,18 +929,11 @@ if mode == "single":
 
             st.markdown("<hr>", unsafe_allow_html=True)
 
-            # Step B: offset histogram
             st.markdown("""
             <div class="callout">
               <div class="callout-head">Step B: Combinatorial hashing &amp; offset histogram</div>
               <div class="callout-body">
-                Each constellation peak is <b>paired</b> with up to 10 later peaks within a
-                target zone of [1, 100] frames. Each pair produces a hash
-                <em>(f₁_bin, f₂_bin, Δt)</em>. These hashes are looked up in the database;
-                for every match the <b>time offset</b> = db_frame − query_frame is recorded.
-                A true match accumulates votes at <b>one consistent offset</b> (the spike),
-                while false songs scatter votes randomly. The song with the highest
-                single-offset vote count wins.
+                Each peak is paired with up to 10 later peaks within a zone of [1, 100] frames to create hashes <em>(f₁_bin, f₂_bin, Δt)</em>. For every database match, the <b>time offset</b> = db_frame − query_frame is noted. True matches create a localized spike, while mismatches distribute randomly.
               </div>
             </div>
             """, unsafe_allow_html=True)
@@ -988,17 +941,19 @@ if mode == "single":
             top_v = ranked[0][2] if ranked else 0
             run_v = ranked[1][2] if len(ranked) > 1 else 0
             fig_h = fig_histogram(histogram, best or "—", top_v, run_v)
-            st.pyplot(fig_h)
-            plt.close(fig_h)
+            st.pyplot(fig_h, clear_figure=True)
 
         finally:
-            os.remove(tmp)
+            if os.path.exists(tmp_path):
+                try:
+                    os.close(os.open(tmp_path, os.O_RDONLY))
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
 
-
-# ══ BATCH MODE ════════════════════════════════════════════════════════════════
-else:
+with tab_batch:
     st.markdown("""
-    <div class="sec-head">
+    <div class="sec-head" style="margin-top:12px">
       <span class="sec-label">input</span>
       <span class="sec-title">Upload query clips</span>
       <span class="sec-line"></span>
@@ -1006,10 +961,7 @@ else:
     <div class="callout" style="margin-bottom:20px">
       <div class="callout-head">Batch mode</div>
       <div class="callout-body">
-        Upload any number of clips. Each is fingerprinted and matched independently.
-        The output <b>results.csv</b> contains two columns:
-        <b>filename</b> (original upload name) and <b>prediction</b>
-        (matched song name, blank if no match).
+        Upload multiple query signals. Results can be inspected immediately or downloaded directly as a structured <b>results.csv</b> array layout.
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1019,55 +971,40 @@ else:
         accept_multiple_files=True, label_visibility="collapsed"
     )
 
-    if uploads and st.button(f"Run on {len(uploads)} clip{'s' if len(uploads) != 1 else ''}"):
-        rows = []
-        bar  = st.progress(0.0, text="")
-        for i, uf in enumerate(uploads):
-            tmp = save_upload_to_tmp(uf)
-            try:
-                y, _ = load_audio(tmp, sr=SR)
-                res  = db.match(y, mode="paired")
-                rows.append({"filename": uf.name, "prediction": res["best"] or ""})
-            except Exception as e:
-                rows.append({"filename": uf.name, "prediction": ""})
-                st.warning(f"{uf.name}: {e}")
-            finally:
-                os.remove(tmp)
-            bar.progress((i + 1) / len(uploads), text=f"{uf.name}")
+    if uploads:
+        if st.button(f"Run Batch Execution ({len(uploads)})"):
+            rows = []
+            bar = st.progress(0.0, text="Initializing execution processing sequence...")
+            
+            for i, uf in enumerate(uploads):
+                tmp_path = save_upload_to_tmp(uf)
+                try:
+                    y, _ = load_audio(tmp_path, sr=SR)
+                    res  = db.match(y, mode="paired")
+                    rows.append({"filename": uf.name, "prediction": res["best"] or "No Match"})
+                except Exception as e:
+                    rows.append({"filename": uf.name, "prediction": f"Error: {str(e)}"})
+                finally:
+                    if os.path.exists(tmp_path):
+                        try:
+                            os.close(os.open(tmp_path, os.O_RDONLY))
+                            os.remove(tmp_path)
+                        except Exception:
+                            pass
+                
+                bar.progress((i + 1) / len(uploads), text=f"Evaluating pipeline matrix: {uf.name}")
 
-        df = pd.DataFrame(rows, columns=["filename", "prediction"])
+            df = pd.DataFrame(rows, columns=["filename", "prediction"])
+            
+            st.markdown('<div style="margin-top:16px;"></div>', unsafe_allow_html=True)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+            
+            csv_data = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download results.csv",
+                data=csv_data,
+                file_name="results.csv",
+                mime="text/csv"
+            )
 
-        st.markdown("""
-        <div class="sec-head" style="margin-top:28px">
-          <span class="sec-label">result</span>
-          <span class="sec-title">Results</span>
-          <span class="sec-line"></span>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.dataframe(df, use_container_width=True)
-        st.download_button(
-            "Download results.csv",
-            df.to_csv(index=False).encode(),
-            "results.csv", "text/csv"
-        )
-
-
-# ── Footer: indexed songs ──────────────────────────────────────────────────────
-st.markdown("<hr>", unsafe_allow_html=True)
-with st.expander(f"indexed songs  ({song_count})"):
-    for name in db.songs.values():
-        st.markdown(f'<div class="song-row">{name}</div>', unsafe_allow_html=True)
-
-# ── Footer attribution ─────────────────────────────────────────────────────────
-st.markdown(f"""
-<div style="padding: 24px 0 8px; font-family: var(--mono); font-size: 9px;
-            letter-spacing: 0.14em; color: var(--dim); text-align: center;
-            border-top: 1px solid var(--rim); margin-top: 12px;">
-  HASHFLASH &nbsp;·&nbsp; EE200 Course Project &nbsp;·&nbsp;
-  Darsh Kedia &amp; Tulip Khatri &nbsp;·&nbsp;
-  Wang (2003) landmark hashing
-</div>
-""", unsafe_allow_html=True)
-
-st.markdown("</div>", unsafe_allow_html=True)  # .page-shell
+st.markdown('</div>', unsafe_allow_html=True)
