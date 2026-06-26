@@ -36,49 +36,49 @@ st.set_page_config(
 # ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
-/* ── Hard-lock every Streamlit container to dark ── */
-html,
-body,
+html, body,
 [data-testid="stApp"],
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"],
 [data-testid="stVerticalBlock"],
-.main,
-.block-container {
-    background-color: #0c0c0f !important;
-    color: #d4d4d8 !important;
+.main, .block-container {
+    background-color: #07060f !important;
+    color: #e4dff0 !important;
 }
-
 header[data-testid="stHeader"] {
-    background-color: #0c0c0f !important;
-    border-bottom: 1px solid #1e1e28 !important;
+    background-color: #07060f !important;
+    border-bottom: 1px solid #1e1b2e !important;
 }
-
 [data-testid="collapsedControl"],
 section[data-testid="stSidebar"] { display: none !important; }
 #MainMenu, footer { visibility: hidden; }
-
 *, *::before, *::after { box-sizing: border-box; }
 
 /* ── Design tokens ── */
 :root {
-    --bg:       #0c0c0f;
-    --s1:       #13131a;
-    --s2:       #18181f;
-    --border:   #1e1e28;
-    --border2:  #2a2a38;
-    --amber:    #ff8c42;
-    --amber-lo: rgba(255,140,66,0.12);
-    --text:     #d4d4d8;
-    --dim:      #52525b;
-    --dim2:     #71717a;
-    --ok:       #4ade80;
-    --err:      #f87171;
-    --mono:     'Space Mono', monospace;
-    --display:  'Syne', sans-serif;
+    --void:      #07060f;
+    --deep:      #0d0c1a;
+    --surface:   #141120;
+    --rim:       #1e1b2e;
+    --rim2:      #2b2645;
+    --amber:     #ff8c42;
+    --amber-lo:  rgba(255,140,66,0.10);
+    --cyan:      #00d4bb;
+    --cyan-lo:   rgba(0,212,187,0.09);
+    --magenta:   #d946ef;
+    --text:      #e4dff0;
+    --muted:     #7a7090;
+    --dim:       #3c3658;
+    --ok:        #4ade80;
+    --err:       #f87171;
+    --mono:      'JetBrains Mono', monospace;
+    --sans:      'Space Grotesk', sans-serif;
+    --hero-font: 'Bebas Neue', sans-serif;
+    --ramp:      linear-gradient(90deg, #3d1159, #d946ef, #ff8c42, #ffd166);
+    --ramp-v:    linear-gradient(180deg, #3d1159, #d946ef, #ff8c42, #ffd166);
 }
 
 /* ── Layout ── */
@@ -93,37 +93,47 @@ section[data-testid="stSidebar"] { display: none !important; }
 .topbar {
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: 56px;
-    background: #0c0c0f;
-    border-bottom: 1px solid #1e1e28;
+    height: 52px;
+    background: rgba(7, 6, 15, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid #1e1b2e;
     display: flex;
     align-items: center;
     padding: 0 36px;
-    gap: 0;
     z-index: 99999;
+    overflow: hidden;
+}
+.topbar::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: var(--ramp);
+    opacity: 0.45;
+    pointer-events: none;
 }
 .topbar-wordmark {
-    font-family: var(--display);
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    font-family: var(--hero-font);
+    font-size: 22px;
+    letter-spacing: 0.08em;
     color: #fff;
 }
 .topbar-wordmark span { color: var(--amber); }
 .topbar-rule {
     flex: 1;
     height: 1px;
-    background: #1e1e28;
+    background: linear-gradient(90deg, #1e1b2e, transparent);
     margin: 0 24px;
 }
 .topbar-db {
     font-family: var(--mono);
     font-size: 10px;
-    letter-spacing: 0.06em;
-    color: var(--dim2);
+    letter-spacing: 0.07em;
+    color: var(--muted);
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
 }
 .db-led {
     width: 6px; height: 6px;
@@ -131,194 +141,194 @@ section[data-testid="stSidebar"] { display: none !important; }
     flex-shrink: 0;
 }
 
-/* Push content below topbar */
+/* ── Page shell ── */
 .page-shell {
-    padding: 80px 44px 60px;
-    max-width: 1120px;
+    padding: 76px 44px 64px;
+    max-width: 1100px;
     margin: 0 auto;
 }
 
-/* ── Mode tabs ── */
-.mode-tabs {
-    display: flex;
-    gap: 0;
-    border-bottom: 1px solid #1e1e28;
-    margin-bottom: 40px;
+/* ── Buttons ── */
+.stButton > button {
+    font-family: var(--mono) !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+    background: transparent !important;
+    color: var(--muted) !important;
+    border: 1px solid var(--rim2) !important;
+    border-radius: 3px !important;
+    padding: 9px 22px !important;
+    transition: all 0.15s ease !important;
 }
-.mtab {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 10px 24px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: var(--dim2);
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    transition: color 0.15s;
-}
-.mtab:hover { color: var(--text); }
-.mtab-on {
+.stButton > button:hover {
+    background: var(--amber-lo) !important;
     color: var(--amber) !important;
-    border-bottom-color: var(--amber) !important;
+    border-color: var(--amber) !important;
 }
 
-/* ── Section heading ── */
+/* ── Section heads ── */
 .sec-head {
     display: flex;
     align-items: center;
     gap: 14px;
-    margin: 0 0 20px;
+    margin: 0 0 22px;
 }
-.sec-num {
+.sec-label {
     font-family: var(--mono);
-    font-size: 10px;
-    color: var(--amber);
-    letter-spacing: 0.12em;
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cyan);
     flex-shrink: 0;
+    padding: 3px 9px;
+    border: 1px solid rgba(0,212,187,0.22);
+    border-radius: 2px;
 }
 .sec-title {
-    font-family: var(--display);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text);
 }
 .sec-line {
     flex: 1;
     height: 1px;
-    background: #1e1e28;
+    background: linear-gradient(90deg, #1e1b2e, transparent);
 }
 
 /* ── Upload zone ── */
 [data-testid="stFileUploaderDropzone"] {
-    background: #13131a !important;
-    border: 1px dashed #2a2a38 !important;
-    border-radius: 6px !important;
-    transition: border-color 0.15s !important;
+    background: var(--deep) !important;
+    border: 1px dashed var(--rim2) !important;
+    border-radius: 4px !important;
+    transition: border-color 0.2s !important;
 }
 [data-testid="stFileUploaderDropzone"]:hover {
-    border-color: var(--amber) !important;
+    border-color: var(--cyan) !important;
 }
 [data-testid="stFileUploaderDropzoneInstructions"] span {
     font-family: var(--mono) !important;
-    font-size: 12px !important;
-    color: var(--dim2) !important;
+    font-size: 11px !important;
+    color: var(--muted) !important;
 }
 [data-testid="stFileUploaderDropzoneInstructions"] small {
     font-family: var(--mono) !important;
     color: var(--dim) !important;
 }
 
-/* ── Buttons ── */
-.stButton > button {
-    font-family: var(--mono) !important;
-    font-size: 11px !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.1em !important;
-    text-transform: uppercase !important;
-    background: transparent !important;
-    color: var(--amber) !important;
-    border: 1px solid var(--amber) !important;
-    border-radius: 4px !important;
-    padding: 10px 24px !important;
-    transition: background 0.15s !important;
-}
-.stButton > button:hover {
-    background: var(--amber-lo) !important;
-}
-
 /* ── Match result ── */
 .match-block {
-    background: #13131a;
-    border: 1px solid #1e1e28;
-    border-left: 3px solid var(--amber);
-    padding: 22px 26px;
-    margin-bottom: 28px;
     display: flex;
-    align-items: flex-start;
-    gap: 20px;
+    background: var(--deep);
+    border: 1px solid var(--rim);
+    border-left: none;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+.match-ramp-strip {
+    width: 3px;
+    flex-shrink: 0;
+    background: var(--ramp-v);
+}
+.match-inner {
+    padding: 22px 26px;
+    flex: 1;
 }
 .match-tag {
     font-family: var(--mono);
     font-size: 9px;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: var(--amber);
-    margin-bottom: 5px;
+    color: var(--cyan);
+    margin-bottom: 7px;
 }
 .match-name {
-    font-family: var(--display);
-    font-size: 24px;
-    font-weight: 800;
+    font-family: var(--hero-font);
+    font-size: 42px;
+    letter-spacing: 0.04em;
     color: #fff;
-    letter-spacing: -0.01em;
-    line-height: 1.1;
+    line-height: 1;
 }
 .no-match-block {
-    background: #13131a;
+    background: var(--deep);
+    border: 1px solid rgba(248,113,113,0.2);
     border-left: 3px solid var(--err);
     padding: 16px 20px;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: 11px;
     color: var(--err);
+    border-radius: 4px;
 }
 
 /* ── Stat pills ── */
-.stat-row { display: flex; gap: 12px; margin-bottom: 28px; }
+.stat-row { display: flex; gap: 10px; margin-bottom: 24px; }
 .stat-pill {
     flex: 1;
-    background: #13131a;
-    border: 1px solid #1e1e28;
-    padding: 14px 18px;
+    background: var(--deep);
+    border: 1px solid var(--rim);
+    border-radius: 4px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+}
+.stat-pill::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--ramp);
+    opacity: 0.55;
 }
 .stat-k {
     font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.12em;
+    font-size: 8px;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--dim2);
-    margin-bottom: 5px;
+    color: var(--muted);
+    margin-bottom: 8px;
 }
 .stat-v {
     font-family: var(--mono);
-    font-size: 26px;
+    font-size: 24px;
     font-weight: 700;
     color: var(--amber);
 }
 
-/* ── Callout / annotation box ── */
+/* ── Callout boxes ── */
 .callout {
-    background: #13131a;
-    border: 1px solid #1e1e28;
+    background: var(--deep);
+    border: 1px solid var(--rim);
     border-radius: 4px;
-    padding: 14px 16px;
-    margin-top: 12px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
 }
 .callout-head {
     font-family: var(--mono);
     font-size: 9px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--amber);
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 .callout-body {
-    font-family: var(--display);
-    font-size: 12px;
-    color: var(--dim2);
-    line-height: 1.6;
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.72;
+    color: var(--muted);
+    font-weight: 300;
 }
-.callout-body b { color: var(--text); font-weight: 600; }
+.callout-body b { color: var(--text); font-weight: 500; }
 
 /* ── Expander ── */
 [data-testid="stExpander"] {
-    background: #13131a !important;
-    border: 1px solid #1e1e28 !important;
+    background: var(--deep) !important;
+    border: 1px solid var(--rim) !important;
     border-radius: 4px !important;
 }
 details summary {
@@ -326,18 +336,21 @@ details summary {
     font-size: 10px !important;
     letter-spacing: 0.1em !important;
     text-transform: uppercase !important;
-    color: var(--dim2) !important;
+    color: var(--muted) !important;
 }
 
 /* ── Tables ── */
-[data-testid="stDataFrame"] { border: 1px solid #1e1e28 !important; border-radius: 4px !important; }
+[data-testid="stDataFrame"] {
+    border: 1px solid var(--rim) !important;
+    border-radius: 4px !important;
+}
 thead tr th {
-    background: #13131a !important;
+    background: var(--surface) !important;
     font-family: var(--mono) !important;
-    font-size: 10px !important;
+    font-size: 9px !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.1em !important;
-    color: var(--dim2) !important;
+    letter-spacing: 0.12em !important;
+    color: var(--muted) !important;
 }
 tbody tr td {
     font-family: var(--mono) !important;
@@ -353,116 +366,153 @@ tbody tr td {
 
 /* ── Alerts / spinner ── */
 [data-testid="stAlert"] {
-    background: #13131a !important;
+    background: var(--deep) !important;
     border-radius: 4px !important;
     font-family: var(--mono) !important;
-    font-size: 12px !important;
+    font-size: 11px !important;
 }
 [data-testid="stSpinner"] p {
     font-family: var(--mono) !important;
-    font-size: 11px !important;
-    color: var(--dim2) !important;
+    font-size: 10px !important;
+    color: var(--muted) !important;
 }
 
 /* ── Divider ── */
-hr { border: none !important; border-top: 1px solid #1e1e28 !important; margin: 32px 0 !important; }
+hr {
+    border: none !important;
+    border-top: 1px solid var(--rim) !important;
+    margin: 36px 0 !important;
+}
 
-/* ── Song list */
+/* ── Song list ── */
 .song-row {
     font-family: var(--mono);
-    font-size: 11px;
-    color: var(--dim2);
-    padding: 5px 0;
-    border-bottom: 1px solid #1a1a22;
+    font-size: 10px;
+    color: var(--muted);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--rim);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 .song-row::before {
-    content: '▸';
+    content: '▶';
     color: var(--amber);
-    font-size: 9px;
+    font-size: 7px;
 }
 
 /* ── Hero ── */
 .hero {
-    padding: 48px 0 44px;
-    border-bottom: 1px solid #1e1e28;
-    margin-bottom: 36px;
+    padding: 52px 0 50px;
+    margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
+}
+/* scanning line — mimics a spectrogram sweep */
+.hero-scan {
+    position: absolute;
+    left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--cyan) 50%, transparent 100%);
+    animation: heroscan 9s linear infinite;
+    pointer-events: none;
+}
+@keyframes heroscan {
+    0%   { top: 0%;   opacity: 0; }
+    6%   { opacity: 0.55; }
+    94%  { opacity: 0.55; }
+    100% { top: 100%; opacity: 0; }
 }
 .hero-kicker {
     font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.18em;
+    font-size: 9px;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: var(--amber);
-    margin-bottom: 18px;
+    color: var(--cyan);
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.hero-kicker::before {
+    content: '';
+    display: inline-block;
+    width: 18px;
+    height: 1px;
+    background: var(--cyan);
+    flex-shrink: 0;
 }
 .hero-title {
-    font-family: var(--display);
-    font-size: clamp(52px, 8vw, 88px);
-    font-weight: 800;
-    line-height: 0.92;
-    letter-spacing: -0.04em;
+    font-family: var(--hero-font);
+    font-size: clamp(68px, 10.5vw, 116px);
+    line-height: 0.9;
+    letter-spacing: 0.03em;
     color: #fff;
-    margin: 0 0 28px;
+    margin: 0 0 6px;
 }
-.hero-title span { color: var(--amber); }
+.hero-title-accent { color: var(--amber); }
+.hero-ramp {
+    width: 100%;
+    height: 2px;
+    background: var(--ramp);
+    margin: 26px 0;
+    opacity: 0.65;
+}
 .hero-desc {
-    font-family: var(--display);
-    font-size: 15px;
-    line-height: 1.65;
-    color: var(--dim2);
-    max-width: 560px;
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--muted);
+    max-width: 530px;
     margin: 0 0 36px;
+    font-weight: 300;
 }
 .hero-meta {
     display: flex;
-    align-items: center;
-    gap: 0;
+    align-items: stretch;
     flex-wrap: wrap;
+    padding: 18px 0;
+    border-top: 1px solid var(--rim);
+    border-bottom: 1px solid var(--rim);
     margin-bottom: 20px;
 }
 .hero-meta-item {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: 0 24px 0 0;
+    gap: 5px;
+    padding: 0 28px;
 }
 .hero-meta-item:first-child { padding-left: 0; }
 .hero-meta-k {
     font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: 0.14em;
+    font-size: 8px;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--dim);
 }
 .hero-meta-v {
     font-family: var(--mono);
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 500;
     color: var(--text);
 }
-.hero-meta-divider {
+.hero-meta-div {
     width: 1px;
-    height: 28px;
-    background: #2a2a38;
-    margin: 0 24px 0 0;
+    background: var(--rim);
     flex-shrink: 0;
 }
 .hero-tracklist {
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 9px;
     color: var(--dim);
-    letter-spacing: 0.04em;
-    padding-top: 16px;
-    border-top: 1px solid #1e1e28;
-    margin-top: 8px;
+    letter-spacing: 0.06em;
+    padding-top: 14px;
+    line-height: 1.9;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# DB loading
+# ── DB loading ────────────────────────────────────────────────────────────────
 @st.cache_resource(show_spinner=False)
 def load_db():
     if os.path.exists(DB_PATH):
@@ -472,13 +522,13 @@ def load_db():
             if hasattr(db, "songs") and len(db.songs) > 0:
                 return db, "precomputed"
         except Exception:
-            pass  # corrupt / Python version mismatch — rebuild below
+            pass
     if os.path.isdir(SONGS_DIR) and any(
         f.lower().endswith((".mp3", ".wav", ".m4a")) for f in os.listdir(SONGS_DIR)
     ):
         db = FingerprintDB(win_length=WIN_LENGTH, hop_length=HOP_LENGTH, sr=SR)
         db.build_from_folder(SONGS_DIR)
-        try:  # overwrite stale pkl with a fresh one for next run
+        try:
             os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
             with open(DB_PATH, "wb") as f:
                 pickle.dump(db, f)
@@ -487,38 +537,42 @@ def load_db():
         return db, "built_live"
     return None, "missing"
 
+
 def save_upload_to_tmp(uf):
     suffix = os.path.splitext(uf.name)[1] or ".mp3"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(uf.getbuffer())
         return tmp.name
 
-# Matplotlib dark theme
+
+# ── Matplotlib dark theme ─────────────────────────────────────────────────────
 RC = {
-    "figure.facecolor":  "#13131a",
-    "axes.facecolor":    "#0c0c0f",
-    "axes.edgecolor":    "#2a2a38",
-    "axes.labelcolor":   "#71717a",
-    "axes.titlecolor":   "#a1a1aa",
-    "xtick.color":       "#52525b",
-    "ytick.color":       "#52525b",
+    "figure.facecolor":  "#0d0c1a",
+    "axes.facecolor":    "#07060f",
+    "axes.edgecolor":    "#2b2645",
+    "axes.labelcolor":   "#7a7090",
+    "axes.titlecolor":   "#a39bb8",
+    "xtick.color":       "#3c3658",
+    "ytick.color":       "#3c3658",
     "xtick.labelsize":   8,
     "ytick.labelsize":   8,
     "axes.labelsize":    9,
     "axes.titlesize":    10,
-    "text.color":        "#d4d4d8",
-    "grid.color":        "#1e1e28",
+    "text.color":        "#e4dff0",
+    "grid.color":        "#1e1b2e",
     "grid.linestyle":    "--",
     "grid.linewidth":    0.5,
     "font.family":       "monospace",
 }
 
-AMBER  = "#ff8c42"
-DIM    = "#52525b"
-DIM2   = "#71717a"
-TEXT   = "#d4d4d8"
-BG0    = "#0c0c0f"
-BG1    = "#13131a"
+AMBER   = "#ff8c42"
+CYAN    = "#00d4bb"
+MAGENTA = "#d946ef"
+DIM     = "#3c3658"
+DIM2    = "#7a7090"
+TEXT    = "#e4dff0"
+BG0     = "#07060f"
+BG1     = "#0d0c1a"
 
 
 def fig_spectrogram(y, sr, win_length, hop_length):
@@ -532,20 +586,20 @@ def fig_spectrogram(y, sr, win_length, hop_length):
         cax = fig.add_subplot(gs[1])
 
         im = ax.pcolormesh(
-            times, freqs / 1000, S_db,   # kHz on y
+            times, freqs / 1000, S_db,
             shading="auto", cmap="inferno", vmin=-80, vmax=0, rasterized=True
         )
         if peaks:
             pt = [p["time_s"]  for p in peaks]
             pf = [p["freq_hz"] / 1000 for p in peaks]
             ax.scatter(pt, pf, s=26, facecolors="none",
-                       edgecolors="#00f5d4", linewidths=1.1, alpha=0.9, zorder=3)
+                       edgecolors=CYAN, linewidths=1.1, alpha=0.9, zorder=3)
 
         ax.set_ylim(0, min(5000, sr / 2) / 1000)
         ax.set_xlabel("time  (s)")
         ax.set_ylabel("frequency  (kHz)")
         ax.yaxis.set_major_formatter(ticker.FormatStrFormatter("%.1f"))
-        ax.grid(True, alpha=0.4)
+        ax.grid(True, alpha=0.35)
 
         cb = fig.colorbar(im, cax=cax)
         cb.set_label("dB", color=DIM2, fontsize=8)
@@ -556,7 +610,7 @@ def fig_spectrogram(y, sr, win_length, hop_length):
                 f"{len(peaks)} peaks",
                 transform=ax.transAxes, va="top", ha="left",
                 fontsize=8, color=AMBER,
-                bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#2a2a38", alpha=0.9))
+                bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#2b2645", alpha=0.9))
 
     return fig, peaks, freqs, times, S_db
 
@@ -575,12 +629,12 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
 
         offs   = sorted(histogram.keys())
         counts = [histogram[o] for o in offs]
-        best_off = max(histogram, key=histogram.get)
+        best_off   = max(histogram, key=histogram.get)
         peak_count = histogram[best_off]
 
         ax1.bar(offs, counts, width=max(1, (max(offs)-min(offs))/len(offs)*0.9),
-                color=AMBER, alpha=0.55, zorder=2)
-        ax1.axvline(best_off, color="#fff", lw=1.2, alpha=0.25, zorder=3)
+                color=AMBER, alpha=0.45, zorder=2)
+        ax1.axvline(best_off, color="#fff", lw=1.1, alpha=0.2, zorder=3)
         ax1.set_yscale("log")
         ax1.set_xlabel("time offset  (frames)")
         ax1.set_ylabel("votes  (log)")
@@ -593,27 +647,25 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
         ax1.text(0.98, 0.97, f"peak @ {best_off}",
                  transform=ax1.transAxes, va="top", ha="right",
                  fontsize=8, color=AMBER,
-                 bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#2a2a38", alpha=0.9))
+                 bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#2b2645", alpha=0.9))
 
         w    = 60
         zoom = [o for o in offs if abs(o - best_off) <= w]
         zcnt = [histogram[o] for o in zoom]
 
         bw = max(1, w // max(len(zoom), 1))
-        ax2.bar(zoom, zcnt, width=bw, color=DIM2, alpha=0.5, zorder=2)
+        ax2.bar(zoom, zcnt, width=bw, color=DIM2, alpha=0.45, zorder=2)
         ax2.bar([best_off], [peak_count], width=bw, color=AMBER, alpha=1.0, zorder=3)
-        ax2.axvline(best_off, color="#fff", lw=1, alpha=0.2)
+        ax2.axvline(best_off, color="#fff", lw=1, alpha=0.18)
         ax2.set_xlabel("time offset  (frames)")
         ax2.set_ylabel("votes")
         ax2.grid(True, axis="y", alpha=0.3)
-
-        title_txt = f"zoom ±{w} frames · {peak_count} votes"
-        ax2.set_title(title_txt, color=DIM2, fontsize=9, pad=6)
+        ax2.set_title(f"zoom ±{w} frames · {peak_count} votes", color=DIM2, fontsize=9, pad=6)
 
     return fig
 
 
-# State
+# ── State ─────────────────────────────────────────────────────────────────────
 if "mode" not in st.session_state:
     st.session_state.mode = "single"
 
@@ -622,14 +674,13 @@ song_count = len(db.songs) if db else 0
 led_color  = "#4ade80" if db_status != "missing" else "#f87171"
 db_label   = f"{song_count} songs indexed" if db_status != "missing" else "no database"
 
-# ── Top bar ──────────────────────────────────────────────────────────────────
+# ── Top bar ───────────────────────────────────────────────────────────────────
 st.markdown(f"""
 <div class="topbar">
   <div class="topbar-wordmark">ZAPP<span>·</span>TAIN</div>
   <div class="topbar-rule"></div>
   <div class="topbar-db">
-    <span class="db-led" style="background:{led_color};
-          box-shadow:0 0 6px {led_color}88;"></span>
+    <span class="db-led" style="background:{led_color}; box-shadow:0 0 6px {led_color}88;"></span>
     {db_label}
   </div>
 </div>
@@ -642,36 +693,38 @@ if db_status == "missing":
     st.error("No song database. Add mp3s to `songs/` → run `python build_database.py`.")
     st.stop()
 
-# ── Hero ─────────────────────────────────────────────────────────────────────
-song_names = list(db.songs.values())
+# ── Hero ──────────────────────────────────────────────────────────────────────
+song_names       = list(db.songs.values())
 song_list_inline = "  ·  ".join(song_names)
 
 st.markdown(f"""
 <div class="hero">
+  <div class="hero-scan"></div>
   <div class="hero-kicker">Audio fingerprinting · Shazam algorithm</div>
-  <h1 class="hero-title">Zapp<span>·</span>tain<br>America</h1>
+  <div class="hero-title">Zapp<span class="hero-title-accent">·</span>tain<br>America</div>
+  <div class="hero-ramp"></div>
   <p class="hero-desc">
-    Upload a short audio clip — even a few seconds over noise — and the
-    system identifies it by matching sparse time–frequency landmarks against
-    a pre-indexed song database. No waveform comparison, no machine learning:
-    just combinatorial hashing and offset voting.
+    Upload a short clip — even a few seconds over noise — and the system
+    identifies it by matching sparse time–frequency landmarks against a
+    pre-indexed database. No waveform comparison, no ML: just combinatorial
+    hashing and offset voting.
   </p>
   <div class="hero-meta">
     <div class="hero-meta-item">
       <span class="hero-meta-k">indexed songs</span>
       <span class="hero-meta-v">{song_count}</span>
     </div>
-    <div class="hero-meta-divider"></div>
+    <div class="hero-meta-div"></div>
     <div class="hero-meta-item">
       <span class="hero-meta-k">window</span>
-      <span class="hero-meta-v">{WIN_LENGTH} samples</span>
+      <span class="hero-meta-v">{WIN_LENGTH} samp</span>
     </div>
-    <div class="hero-meta-divider"></div>
+    <div class="hero-meta-div"></div>
     <div class="hero-meta-item">
       <span class="hero-meta-k">sample rate</span>
       <span class="hero-meta-v">{SR} Hz</span>
     </div>
-    <div class="hero-meta-divider"></div>
+    <div class="hero-meta-div"></div>
     <div class="hero-meta-item">
       <span class="hero-meta-k">hash method</span>
       <span class="hero-meta-v">paired peaks</span>
@@ -696,12 +749,13 @@ with c2:
 mode = st.session_state.mode
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# SINGLE-CLIP MODE
+
+# ══ SINGLE-CLIP MODE ══════════════════════════════════════════════════════════
 if mode == "single":
 
     st.markdown("""
     <div class="sec-head">
-      <span class="sec-num">01</span>
+      <span class="sec-label">signal</span>
       <span class="sec-title">Upload query clip</span>
       <span class="sec-line"></span>
     </div>
@@ -722,30 +776,33 @@ if mode == "single":
             with st.spinner("fingerprinting and matching…"):
                 result = db.match(y, mode="paired")
 
-            best       = result["best"]
-            histogram  = result["histogram"]
-            ranked     = result["ranked"]
+            best      = result["best"]
+            histogram = result["histogram"]
+            ranked    = result["ranked"]
 
-            # ── Result ───────────────────────────────────────────────────────
+            # ── Result ──────────────────────────────────────────────────────
             st.markdown("""
             <div class="sec-head" style="margin-top:28px">
-              <span class="sec-num">02</span>
-              <span class="sec-title">Identification result</span>
+              <span class="sec-label">result</span>
+              <span class="sec-title">Identification</span>
               <span class="sec-line"></span>
             </div>
             """, unsafe_allow_html=True)
 
             if best is None:
-                st.markdown('<div class="no-match-block">✕ no match — clip does not correspond to any indexed song</div>',
-                            unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="no-match-block">✕ no match — clip does not correspond to any indexed song</div>',
+                    unsafe_allow_html=True
+                )
             else:
-                top_votes = ranked[0][2]
-                runner_up = ranked[1][2] if len(ranked) > 1 else 0
-                ratio     = f"{top_votes/max(runner_up,1):.1f}×" if runner_up else "—"
+                top_votes  = ranked[0][2]
+                runner_up  = ranked[1][2] if len(ranked) > 1 else 0
+                ratio      = f"{top_votes/max(runner_up,1):.1f}×" if runner_up else "—"
 
                 st.markdown(f"""
                 <div class="match-block">
-                  <div>
+                  <div class="match-ramp-strip"></div>
+                  <div class="match-inner">
                     <div class="match-tag">identified song</div>
                     <div class="match-name">{best}</div>
                   </div>
@@ -772,10 +829,10 @@ if mode == "single":
                         columns=["song", "votes"],
                     ))
 
-            # ── Intermediate steps ────────────────────────────────────────────
+            # ── Intermediate steps ───────────────────────────────────────────
             st.markdown("""
             <div class="sec-head" style="margin-top:28px">
-              <span class="sec-num">03</span>
+              <span class="sec-label">analysis</span>
               <span class="sec-title">Intermediate steps</span>
               <span class="sec-line"></span>
             </div>
@@ -786,13 +843,13 @@ if mode == "single":
             <div class="callout">
               <div class="callout-head">A — Spectrogram &amp; constellation map</div>
               <div class="callout-body">
-                The audio is divided into short, overlapping windows (<b>win={win}</b> samples,
-                hop=<b>{hop}</b> samples at {sr} Hz). Each window is multiplied by a
-                <b>Hann taper</b> to suppress spectral leakage, then passed through an FFT.
-                Stacking these column-by-column gives the time–frequency power map below.
-                <b>Teal circles</b> mark the <em>constellation peaks</em> — local maxima
-                that exceed the neighbourhood and a −40 dB floor, thinned to at most
-                5 per time-frame. These sparse landmarks are what gets fingerprinted.
+                The audio is divided into short overlapping windows (<b>win={win}</b> samples,
+                hop=<b>{hop}</b> at {sr} Hz). Each window is multiplied by a <b>Hann taper</b>
+                to suppress spectral leakage, then passed through an FFT. Stacking these
+                column-by-column gives the time–frequency power map below. <b>Teal circles</b>
+                mark the <em>constellation peaks</em> — local maxima exceeding the neighbourhood
+                and a −40 dB floor, thinned to at most 5 per time-frame. These sparse landmarks
+                are what gets fingerprinted.
               </div>
             </div>
             """.format(win=WIN_LENGTH, hop=HOP_LENGTH, sr=SR), unsafe_allow_html=True)
@@ -803,6 +860,7 @@ if mode == "single":
 
             freq_res = SR / WIN_LENGTH
             time_res = HOP_LENGTH / SR * 1000
+
             st.markdown(f"""
             <div class="stat-row" style="margin-top:10px">
               <div class="stat-pill">
@@ -836,8 +894,8 @@ if mode == "single":
                 <em>(f₁_bin, f₂_bin, Δt)</em>. These hashes are looked up in the database;
                 for every match the <b>time offset</b> = db_frame − query_frame is recorded.
                 A true match accumulates votes at <b>one consistent offset</b> (the spike),
-                while false songs scatter votes randomly across all offsets.
-                The song with the highest single-offset vote count wins.
+                while false songs scatter votes randomly. The song with the highest
+                single-offset vote count wins.
               </div>
             </div>
             """, unsafe_allow_html=True)
@@ -851,11 +909,12 @@ if mode == "single":
         finally:
             os.remove(tmp)
 
-# BATCH MODE
+
+# ══ BATCH MODE ════════════════════════════════════════════════════════════════
 else:
     st.markdown("""
     <div class="sec-head">
-      <span class="sec-num">01</span>
+      <span class="sec-label">signal</span>
       <span class="sec-title">Upload query clips</span>
       <span class="sec-line"></span>
     </div>
@@ -875,7 +934,7 @@ else:
         accept_multiple_files=True, label_visibility="collapsed"
     )
 
-    if uploads and st.button(f"Run on {len(uploads)} clip{'s' if len(uploads)!=1 else ''}"):
+    if uploads and st.button(f"Run on {len(uploads)} clip{'s' if len(uploads) != 1 else ''}"):
         rows = []
         bar  = st.progress(0.0, text="")
         for i, uf in enumerate(uploads):
@@ -895,7 +954,7 @@ else:
 
         st.markdown("""
         <div class="sec-head" style="margin-top:28px">
-          <span class="sec-num">02</span>
+          <span class="sec-label">result</span>
           <span class="sec-title">Results</span>
           <span class="sec-line"></span>
         </div>
@@ -908,7 +967,8 @@ else:
             "results.csv", "text/csv"
         )
 
-# ── Footer: indexed songs ─────────────────────────────────────────────────────
+
+# ── Footer: indexed songs ──────────────────────────────────────────────────────
 st.markdown("<hr>", unsafe_allow_html=True)
 with st.expander(f"indexed songs  ({song_count})"):
     for name in db.songs.values():
