@@ -801,9 +801,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-if db_status == "built_live":
-    st.info("Database re-indexed live at startup, fingerprint_db.pkl has been saved.")
-
 tab_single, tab_batch = st.tabs(["Single Clip", "Batch Mode"])
 
 with tab_single:
