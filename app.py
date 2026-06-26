@@ -590,6 +590,8 @@ hr {
 [data-testid="stTabs"] [aria-selected="true"] {
     border-bottom-color: var(--teal) !important;
 }
+[theme]
+primaryColor = GOLD
 </style>
 """, unsafe_allow_html=True)
 
