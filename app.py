@@ -572,7 +572,7 @@ hr {
 }
 [data-testid="stTabs"] [aria-selected="true"] {
     color: var(--teal) !important;
-    border-color: var(--teal) var(--teal) transparent var(--teal) !important;
+    border-color: var(--teal) var(--teal) var(--teal) var(--teal) !important;
     background-color: var(--deep) !important;
 }
 </style>
