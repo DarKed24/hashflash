@@ -654,7 +654,7 @@ def fig_spectrogram(y, sr, win_length, hop_length):
             pt = [p["time_s"]  for p in peaks]
             pf = [p["freq_hz"] / 1000 for p in peaks]
             ax.scatter(pt, pf, s=18, facecolors="none",
-                       edgecolors=GOLD, linewidths=0.9, alpha=0.8, zorder=3)
+                       edgecolors=TEXT, linewidths=0.9, alpha=0.8, zorder=3)
 
         ax.set_ylim(0, min(5000, sr / 2) / 1000)
         ax.set_xlabel("time  (s)")
