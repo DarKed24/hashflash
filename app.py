@@ -590,8 +590,9 @@ hr {
 [data-testid="stTabs"] [aria-selected="true"] {
     border-bottom-color: var(--teal) !important;
 }
-[theme]
-primaryColor = GOLD
+div[data-testid="stTabActiveIndicator"] {
+        background-color: GOLD !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
