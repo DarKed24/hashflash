@@ -757,7 +757,7 @@ st.markdown(f"""
   <div class="project-title">Hash<span class="project-title-accent">Flash</span></div>
   <p class="project-subtitle">
     A content-based audio identification system implementing the Shazam landmark hashing algorithm.
-    Identifies recordings against an indexed database using sparse time–frequency peaks
+    Identifies recordings against an indexed database using sparse time-frequency peaks
     and combinatorial hash voting.
   </p>
 
