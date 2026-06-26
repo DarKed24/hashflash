@@ -892,7 +892,7 @@ with tab_single:
             <div class="callout">
               <div class="callout-head">Step A: Spectrogram &amp; constellation map</div>
               <div class="callout-body">
-                The audio is divided into overlapping windows (<b>win={win}</b> samples, hop=<b>{hop}</b> at {sr} Hz) with a <b>Hann taper</b> and passed through an FFT. <b>Gold circles</b> mark <em>constellation peaks</em> local maxima exceeding a −40 dB floor, thinned to 5 per frame.
+                The audio is divided into overlapping windows (<b>win={win}</b> samples, hop=<b>{hop}</b> at {sr} Hz) with a <b>Hann taper</b> and passed through an FFT. <b>White circles</b> mark <em>constellation peaks</em> local maxima exceeding a −40 dB floor, thinned to 5 per frame.
               </div>
             </div>
             """.format(win=WIN_LENGTH, hop=HOP_LENGTH, sr=SR), unsafe_allow_html=True)
