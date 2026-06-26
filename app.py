@@ -82,6 +82,13 @@ section[data-testid="stSidebar"] { display: none !important; }
     max-width: 100% !important;
 }
 
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
+.main .block-container {
+    padding-top: 0px !important;
+}            
 .topbar {
     position: fixed;
     top: 0; left: 0; right: 0;
