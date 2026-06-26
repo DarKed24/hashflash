@@ -575,6 +575,9 @@ hr {
     border-color: var(--teal) var(--teal) var(--teal) var(--teal) !important;
     background-color: var(--deep) !important;
 }
+[data-testid="stTabs"] [data-baseweb="tab-highlight-indicator"] {
+    background-color: var(--teal) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
