@@ -1,8 +1,3 @@
-"""
-app.py — AudioTag  (audio fingerprinting demo)
-EE200 Course Project · Darsh Kedia & Tulip Khatri
-"""
-
 import os
 import pickle
 import tempfile
@@ -28,7 +23,7 @@ DB_PATH    = "data/fingerprint_db.pkl"
 SONGS_DIR  = "songs"
 
 st.set_page_config(
-    page_title="AudioTag — EE200 Project",
+    page_title="AudioTag EE200 Project",
     page_icon="🎵",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -189,7 +184,7 @@ section[data-testid="stSidebar"] { display: none !important; }
     border-color: var(--blue) !important;
 }
 
-/* ── Upload zone — force dark bg and visible text in light mode ── */
+/* ── Upload zone: force dark bg and visible text in light mode ── */
 [data-testid="stFileUploaderDropzone"],
 [data-testid="stFileUploaderDropzone"] * {
     background: var(--deep) !important;
@@ -662,7 +657,7 @@ def fig_spectrogram(y, sr, win_length, hop_length):
             pt = [p["time_s"]  for p in peaks]
             pf = [p["freq_hz"] / 1000 for p in peaks]
             ax.scatter(pt, pf, s=26, facecolors="none",
-                       edgecolors=TEAL, linewidths=1.1, alpha=0.9, zorder=3)
+                       edgecolors=GOLD, linewidths=1.1, alpha=0.9, zorder=3)
 
         ax.set_ylim(0, min(5000, sr / 2) / 1000)
         ax.set_xlabel("time  (s)")
@@ -769,12 +764,12 @@ song_list_inline = "  ·  ".join(song_names)
 
 st.markdown(f"""
 <div class="project-header">
-  <div class="project-eyebrow">EE200 — Course Project · Audio Signal Processing</div>
+  <div class="project-eyebrow">EE200 Course Project · Audio Signal Processing</div>
   <div class="project-title">Audio<span class="project-title-accent">Tag</span></div>
   <p class="project-subtitle">
     A content-based audio identification system implementing the Shazam landmark hashing algorithm.
     Identifies recordings against an indexed database using sparse time–frequency peaks
-    and combinatorial hash voting — no machine learning, no waveform comparison.
+    and combinatorial hash voting, no machine learning and no waveform comparison.
   </p>
 
   <div class="meta-strip">
@@ -799,13 +794,13 @@ st.markdown(f"""
   <div class="abstract">
     <div class="abstract-label">Abstract</div>
     <div class="abstract-text">
-      This project implements the audio fingerprinting technique described by Wang (2003) — the algorithm
+      This project implements the audio fingerprinting technique described by Wang (2003), the algorithm
       underlying Shazam. Audio is converted to a time–frequency spectrogram via short-time Fourier
       transform with a <b>Hann window ({WIN_LENGTH} samples, {HOP_LENGTH}-sample hop)</b> at
       <b>{SR} Hz</b>. Sparse constellation peaks are extracted from local spectral maxima and
       paired within a target zone to produce compact <b>(f₁, f₂, Δt)</b> hashes. A query clip is
       matched by looking up its hashes against a pre-indexed database and finding the candidate song
-      whose hash matches cluster at a single time offset — evidence of a true alignment rather than
+      whose hash matches cluster at a single time offset, evidence of a true alignment rather than
       coincidental collision.
     </div>
   </div>
@@ -825,7 +820,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 if db_status == "built_live":
-    st.info("Database re-indexed live at startup — fingerprint_db.pkl has been saved.")
+    st.info("Database re-indexed live at startup, fingerprint_db.pkl has been saved.")
 
 # ── Mode tabs ─────────────────────────────────────────────────────────────────
 c1, c2, _ = st.columns([1, 1, 6])
@@ -881,7 +876,7 @@ if mode == "single":
 
             if best is None:
                 st.markdown(
-                    '<div class="no-match-block">✕ No match — clip does not correspond to any indexed song.</div>',
+                    '<div class="no-match-block">✕ No match - clip does not correspond to any indexed song.</div>',
                     unsafe_allow_html=True
                 )
             else:
@@ -931,13 +926,13 @@ if mode == "single":
             # Step A: spectrogram + constellation
             st.markdown("""
             <div class="callout">
-              <div class="callout-head">Step A — Spectrogram &amp; constellation map</div>
+              <div class="callout-head">Step A: Spectrogram &amp; constellation map</div>
               <div class="callout-body">
                 The audio is divided into short overlapping windows (<b>win={win}</b> samples,
                 hop=<b>{hop}</b> at {sr} Hz). Each window is multiplied by a <b>Hann taper</b>
                 to suppress spectral leakage, then passed through an FFT. Stacking these
                 column-by-column gives the time–frequency power map below. <b>Teal circles</b>
-                mark the <em>constellation peaks</em> — local maxima exceeding the neighbourhood
+                mark the <em>constellation peaks</em>, local maxima exceeding the neighbourhood
                 and a −40 dB floor, thinned to at most 5 per time-frame. These sparse landmarks
                 are what gets fingerprinted.
               </div>
@@ -977,7 +972,7 @@ if mode == "single":
             # Step B: offset histogram
             st.markdown("""
             <div class="callout">
-              <div class="callout-head">Step B — Combinatorial hashing &amp; offset histogram</div>
+              <div class="callout-head">Step B: Combinatorial hashing &amp; offset histogram</div>
               <div class="callout-body">
                 Each constellation peak is <b>paired</b> with up to 10 later peaks within a
                 target zone of [1, 100] frames. Each pair produces a hash
