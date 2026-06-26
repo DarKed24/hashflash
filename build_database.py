@@ -1,19 +1,3 @@
-"""
-build_database.py
-------------------
-Run this ONCE (locally, before deploying) to index every song in songs/
-into a fingerprint database, and save it to data/fingerprint_db.pkl.
-
-The deployed Streamlit app only needs to ship data/fingerprint_db.pkl --
-NOT the raw mp3s -- since matching only needs the precomputed hash index,
-not the original audio. This keeps the deployed repo small and makes the
-app start up instantly (no re-hashing 50 songs on every cold start).
-
-Usage:
-    python3 build_database.py                  # indexes everything in songs/
-    python3 build_database.py --songs-dir X     # custom folder
-"""
-
 import argparse
 import os
 import pickle

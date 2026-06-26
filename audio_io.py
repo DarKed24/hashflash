@@ -1,13 +1,3 @@
-"""
-audio_io.py
------------
-Audio loading (mp3 -> mono PCM via ffmpeg) and a from-scratch STFT.
-
-We deliberately implement the STFT by hand with numpy rather than calling
-librosa.stft, to make explicit that "a spectrogram is just a DFT taken on
-each short windowed slice of the signal, stacked side by side."
-"""
-
 import os
 import subprocess
 import tempfile
@@ -16,15 +6,6 @@ from scipy.io import wavfile
 
 
 def load_audio(path, sr=22050):
-    """
-    Decode any audio file (mp3, wav, m4a, ...) to a mono float32 numpy
-    array at the target sample rate, using ffmpeg as the decoder.
-
-    Returns
-    -------
-    y  : np.ndarray, shape (N,), float32 in [-1, 1]
-    sr : int, the sample rate actually returned (== requested sr)
-    """
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         tmp_path = tmp.name
     try:
@@ -57,20 +38,6 @@ def load_audio(path, sr=22050):
 
 
 def stft(y, sr, win_length=2048, hop_length=512, window="hann"):
-    """
-    Manual short-time Fourier transform.
-
-    Slides a window of length `win_length` along y in steps of `hop_length`,
-    takes the FFT of each (windowed) slice, and stacks the results into a
-    2D time-frequency matrix.
-
-    Returns
-    -------
-    freqs : np.ndarray, shape (n_bins,)   -- frequency (Hz) of each row
-    times : np.ndarray, shape (n_frames,) -- center time (s) of each column
-    S     : np.ndarray, shape (n_bins, n_frames), complex
-            S[k, t] = DFT coefficient for frequency bin k in time frame t
-    """
     if window == "hann":
         win = np.hanning(win_length).astype(np.float32)
     elif window == "rect":
@@ -98,11 +65,6 @@ def stft(y, sr, win_length=2048, hop_length=512, window="hann"):
 
 
 def spectrogram_db(y, sr, win_length=2048, hop_length=512, window="hann", top_db=80.0):
-    """
-    Convenience wrapper: returns (freqs, times, S_db) where S_db is the
-    magnitude spectrogram in dB, clipped to `top_db` dynamic range below
-    the loudest point (standard practice for visualization/peak-picking).
-    """
     freqs, times, S = stft(y, sr, win_length, hop_length, window)
     mag = np.abs(S)
     mag = np.maximum(mag, 1e-10)

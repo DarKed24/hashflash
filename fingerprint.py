@@ -1,20 +1,3 @@
-"""
-fingerprint.py
---------------
-The actual "Shazam" logic, built on top of audio_io.spectrogram_db:
-
-  1. find_constellation_peaks  -- keep only strong local maxima of the
-                                   spectrogram (the "constellation").
-  2. hashes_paired              -- combinatorial hashing: pair each anchor
-                                    peak with nearby peaks in a target zone,
-                                    hash = (f1, f2, delta_t).
-  3. hashes_single               -- baseline for comparison: hash = (f1,)
-                                    alone, no pairing.
-  4. build_database              -- fingerprint a folder of reference songs.
-  5. match                       -- fingerprint a query and vote on offsets
-                                    to find the best-aligned song.
-"""
-
 import os
 from collections import defaultdict
 import numpy as np
@@ -31,19 +14,6 @@ def find_constellation_peaks(S_db, freqs, times,
                               amp_min_db=-40.0,
                               freq_nbhd=10, time_nbhd=10,
                               max_peaks_per_frame=5):
-    """
-    Pick local maxima of the spectrogram that stand out from their
-    surroundings (the "circled points" in the assignment figure).
-
-    A point is a peak if it equals the max of its (freq_nbhd x time_nbhd)
-    neighborhood AND is louder than amp_min_db. To stop peaks from
-    clumping only in the loudest seconds, we additionally cap the number
-    of peaks kept per time-frame to the `max_peaks_per_frame` strongest.
-
-    Returns
-    -------
-    peaks : list of dicts {frame, bin, freq_hz, time_s, db}
-    """
     local_max = maximum_filter(S_db, size=(freq_nbhd, time_nbhd), mode="constant", cval=-np.inf)
     is_peak = (S_db == local_max) & (S_db > amp_min_db)
 
@@ -51,25 +21,14 @@ def find_constellation_peaks(S_db, freqs, times,
     n_bins = S_db.shape[0]
     bin_width = freqs[1] - freqs[0]
 
-    # group by time frame, keep the loudest `max_peaks_per_frame` per frame
     by_frame = defaultdict(list)
     for fi, ti in zip(freq_idx, time_idx):
         by_frame[ti].append((S_db[fi, ti], fi))
 
     peaks = []
     for ti, candidates in by_frame.items():
-        candidates.sort(reverse=True)  # loudest first
+        candidates.sort(reverse=True)
         for db, fi in candidates[:max_peaks_per_frame]:
-            # Sub-bin frequency refinement: parabolic (quadratic) interpolation
-            # using the peak bin and its two neighbours. A raw FFT bin is only
-            # accurate to +-bin_width/2; for a steady tone that doesn't sit
-            # exactly on a bin center, small input perturbations (noise, a
-            # different window phase) can flip the *integer* argmax between
-            # two adjacent bins even though the *true* underlying frequency
-            # hasn't moved. Interpolating to a continuous estimate first and
-            # THEN quantizing to a coarser, fixed-size hash bucket makes the
-            # hash far more reproducible. This is standard practice in real
-            # fingerprinting / pitch-detection systems.
             if 0 < fi < n_bins - 1:
                 left, center, right = S_db[fi - 1, ti], S_db[fi, ti], S_db[fi + 1, ti]
                 denom = (left - 2 * center + right)
@@ -82,7 +41,7 @@ def find_constellation_peaks(S_db, freqs, times,
             peaks.append({
                 "frame": int(ti),
                 "bin": int(fi),
-                "hbin": int(round(refined_hz / bin_width)),  # used for hashing (more stable than raw bin)
+                "hbin": int(round(refined_hz / bin_width)),
                 "freq_hz": float(refined_hz),
                 "time_s": float(times[ti]),
                 "db": float(db),
@@ -97,16 +56,6 @@ def find_constellation_peaks(S_db, freqs, times,
 # ----------------------------------------------------------------------
 
 def hashes_paired(peaks, fan_value=10, min_dt=1, max_dt=100):
-    """
-    Classic Shazam-style combinatorial hashing. For every anchor peak,
-    pair it with up to `fan_value` other peaks that come later in time
-    within [min_dt, max_dt] frames ("the target zone"). Each pair becomes
-    one hash: (f1_bin, f2_bin, delta_t_frames).
-
-    Returns
-    -------
-    list of (hash_key, anchor_frame) tuples
-    """
     out = []
     n = len(peaks)
     for i in range(n):
@@ -118,7 +67,7 @@ def hashes_paired(peaks, fan_value=10, min_dt=1, max_dt=100):
             if dt < min_dt:
                 continue
             if dt > max_dt:
-                break  # peaks are time-sorted, no point scanning further
+                break
             key = (anchor["hbin"], other["hbin"], dt)
             out.append((key, anchor["frame"]))
             paired += 1
@@ -128,14 +77,6 @@ def hashes_paired(peaks, fan_value=10, min_dt=1, max_dt=100):
 
 
 def hashes_single(peaks):
-    """
-    Baseline for comparison: hash each peak's frequency bin on its own,
-    with no pairing / no timing information between peaks.
-
-    Returns
-    -------
-    list of (hash_key, anchor_frame) tuples
-    """
     return [((p["hbin"],), p["frame"]) for p in peaks]
 
 
@@ -158,8 +99,8 @@ class FingerprintDB:
         self.min_dt = min_dt
         self.max_dt = max_dt
 
-        self.songs = {}            # song_id -> song_name (filename w/o ext)
-        self.paired_index = defaultdict(list)  # hash -> [(song_id, frame), ...]
+        self.songs = {}
+        self.paired_index = defaultdict(list)
         self.single_index = defaultdict(list)
 
     # --- helpers --------------------------------------------------
@@ -208,26 +149,10 @@ class FingerprintDB:
 
     # --- matching ----------------------------------------------------
     def match(self, y, mode="paired", top_k=3):
-        """
-        Identify a query waveform `y` against the database.
-
-        Returns
-        -------
-        result : dict with:
-          - 'ranked'    : list of (song_id, song_name, votes) best-first
-          - 'best'      : song_name of the top match (or None)
-          - 'histogram' : {offset: count} for the BEST song (for plotting)
-          - 'all_histograms' : {song_id: {offset: count}} for every song
-            that received at least one matching hash (useful for the
-            offset-histogram panel in the app)
-          - 'query_fp'  : the fingerprint dict for the query (spectrogram,
-            peaks, etc.) so the app can also show those panels.
-        """
         fp = self.fingerprint_array(y)
         query_hashes = fp["paired"] if mode == "paired" else fp["single"]
         index = self.paired_index if mode == "paired" else self.single_index
 
-        # song_id -> {offset: count}
         offset_votes = defaultdict(lambda: defaultdict(int))
         for key, q_frame in query_hashes:
             for song_id, db_frame in index.get(key, []):

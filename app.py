@@ -33,9 +33,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ══════════════════════════════════════════════════════════════════════════════
-# CSS — force dark palette on every Streamlit surface, light-mode-proof
-# ══════════════════════════════════════════════════════════════════════════════
+# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
@@ -464,9 +462,7 @@ hr { border: none !important; border-top: 1px solid #1e1e28 !important; margin: 
 </style>
 """, unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════════════════
 # DB loading
-# ══════════════════════════════════════════════════════════════════════════════
 @st.cache_resource(show_spinner=False)
 def load_db():
     if os.path.exists(DB_PATH):
@@ -497,9 +493,7 @@ def save_upload_to_tmp(uf):
         tmp.write(uf.getbuffer())
         return tmp.name
 
-# ══════════════════════════════════════════════════════════════════════════════
 # Matplotlib dark theme
-# ══════════════════════════════════════════════════════════════════════════════
 RC = {
     "figure.facecolor":  "#13131a",
     "axes.facecolor":    "#0c0c0f",
@@ -528,7 +522,6 @@ BG1    = "#13131a"
 
 
 def fig_spectrogram(y, sr, win_length, hop_length):
-    """Spectrogram + constellation overlay, with a dB colorbar."""
     freqs, times, S_db = spectrogram_db(y, sr, win_length, hop_length)
     peaks = find_constellation_peaks(S_db, freqs, times)
 
@@ -542,7 +535,6 @@ def fig_spectrogram(y, sr, win_length, hop_length):
             times, freqs / 1000, S_db,   # kHz on y
             shading="auto", cmap="inferno", vmin=-80, vmax=0, rasterized=True
         )
-        # constellation — bright cyan pops off inferno's orange/purple palette
         if peaks:
             pt = [p["time_s"]  for p in peaks]
             pf = [p["freq_hz"] / 1000 for p in peaks]
@@ -560,7 +552,6 @@ def fig_spectrogram(y, sr, win_length, hop_length):
         cb.ax.yaxis.set_tick_params(color=DIM2, labelsize=7)
         plt.setp(cb.ax.yaxis.get_ticklabels(), color=DIM2)
 
-        # annotation for peak count
         ax.text(0.01, 0.97,
                 f"{len(peaks)} peaks",
                 transform=ax.transAxes, va="top", ha="left",
@@ -571,11 +562,6 @@ def fig_spectrogram(y, sr, win_length, hop_length):
 
 
 def fig_histogram(histogram, best_name, best_votes, runner_votes):
-    """
-    3-panel layout:
-      Left  — full offset histogram (log scale), all songs overlaid faintly
-      Right — zoom window around the winning offset
-    """
     with plt.rc_context(RC):
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.8),
                                         gridspec_kw={"width_ratios": [3, 2]})
@@ -592,7 +578,6 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
         best_off = max(histogram, key=histogram.get)
         peak_count = histogram[best_off]
 
-        # ── left: full histogram ──
         ax1.bar(offs, counts, width=max(1, (max(offs)-min(offs))/len(offs)*0.9),
                 color=AMBER, alpha=0.55, zorder=2)
         ax1.axvline(best_off, color="#fff", lw=1.2, alpha=0.25, zorder=3)
@@ -601,7 +586,6 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
         ax1.set_ylabel("votes  (log)")
         ax1.grid(True, axis="y", alpha=0.3)
 
-        # highlight the peak bar
         ax1.bar([best_off], [peak_count],
                 width=max(1, (max(offs)-min(offs))/len(offs)*0.9),
                 color=AMBER, alpha=1.0, zorder=4)
@@ -611,12 +595,10 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
                  fontsize=8, color=AMBER,
                  bbox=dict(boxstyle="round,pad=0.3", fc=BG1, ec="#2a2a38", alpha=0.9))
 
-        # ── right: zoomed ──
         w    = 60
         zoom = [o for o in offs if abs(o - best_off) <= w]
         zcnt = [histogram[o] for o in zoom]
 
-        # bar width: 1 if dense, else a bit wider
         bw = max(1, w // max(len(zoom), 1))
         ax2.bar(zoom, zcnt, width=bw, color=DIM2, alpha=0.5, zorder=2)
         ax2.bar([best_off], [peak_count], width=bw, color=AMBER, alpha=1.0, zorder=3)
@@ -631,9 +613,7 @@ def fig_histogram(histogram, best_name, best_votes, runner_votes):
     return fig
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 # State
-# ══════════════════════════════════════════════════════════════════════════════
 if "mode" not in st.session_state:
     st.session_state.mode = "single"
 
@@ -716,9 +696,7 @@ with c2:
 mode = st.session_state.mode
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════════════════
 # SINGLE-CLIP MODE
-# ══════════════════════════════════════════════════════════════════════════════
 if mode == "single":
 
     st.markdown("""
@@ -873,9 +851,7 @@ if mode == "single":
         finally:
             os.remove(tmp)
 
-# ══════════════════════════════════════════════════════════════════════════════
 # BATCH MODE
-# ══════════════════════════════════════════════════════════════════════════════
 else:
     st.markdown("""
     <div class="sec-head">
